@@ -25,7 +25,7 @@ class Handler():
         loaded_cogs = []
         # Grab all the cogs inside my `cogs` folder and duplicate the list.
         cog_file_list = pathlib.Path.joinpath(self._cwd, 'cogs').iterdir()
-        cur_cog_file_list = [entry for entry in cog_file_list]
+        cur_cog_file_list = list(cog_file_list)
 
         # This while loop will force it to load EVERY cog it finds until the list is empty.
         while len(cur_cog_file_list) > 0:
@@ -36,18 +36,23 @@ class Handler():
                     cur_cog_file_list.remove(script)
                     continue
 
-                module_name = script.name[4:-3].capitalize()  # File name ofc.
+                module_name = script.name[:-3].capitalize()  # File name ofc.
                 spec = importlib.util.spec_from_file_location(
                     module_name, script)
                 class_module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(class_module)
 
                 module_dependencies = getattr(class_module, f'Dependencies')
+                missing_depen = False
                 if module_dependencies != None:
-                    for dependency in getattr(class_module, f'Dependencies'):
+                    for dependency in module_dependencies:
                         # If the cog we need isnt loaded; skip. We will come back around to it.
                         if dependency.lower() not in loaded_cogs:
-                            continue
+                            missing_depen = True
+                            break
+
+                    if missing_depen:
+                        continue
 
                 cog = f'{path}.{script.name[:-3]}'
 
@@ -70,6 +75,7 @@ class Handler():
                         f'**FINISHED LOADING** {self._name} -> **{cog}**')
 
                 except discord.ext.commands.errors.ExtensionAlreadyLoaded:
+                    cur_cog_file_list.remove(script)
                     continue
 
                 except FileNotFoundError as e:

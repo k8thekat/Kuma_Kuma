@@ -1,3 +1,24 @@
+'''
+   Copyright (C) 2021-2022 Katelynn Cadwallader.
+
+   This file is part of Kuma Kuma Bear, a Discord Bot.
+
+   Kuma Kuma Bear is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
+
+   Kuma Kuma Bear is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with Kuma Kuma Bear; see the file COPYING.  If not, write to the Free
+   Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA
+   02110-1301, USA. 
+
+'''
 import asyncio
 from contextlib import redirect_stdout
 import traceback
@@ -12,6 +33,7 @@ from discord.ext import commands
 # This is required on each cog.
 Dependencies = None
 
+
 class Repl(commands.Cog):
     def __init__(self, client: discord.Client) -> None:
         self._client = client
@@ -20,10 +42,17 @@ class Repl(commands.Cog):
         self._logger.info(f'**SUCCESS** Initializing {self._name} ')
 
     @property
-    def sessions(self):
+    def sessions(self) -> int:
         return self._client.sessions
 
+    @commands.Cog.listener('on_message')
+    async def on_message_listener(self, message: discord.Message):
+        # This is for our `REPL` sessions.
+        if message.channel.id in self.sessions:
+            return
+
     @commands.command(hidden=True)
+    @commands.is_owner()
     async def repl(self, ctx: commands.Context):
         """Launches an interactive REPL session."""
         variables = {

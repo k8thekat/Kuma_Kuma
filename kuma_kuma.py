@@ -23,7 +23,6 @@
 '''
 import logger
 import tokens
-import utils
 import loader
 
 import discord
@@ -33,20 +32,11 @@ from discord.ext import commands
 
 
 import logging
-import sys
-import io
-import aiohttp
-import os
-import json
 from traceback import format_exc as geterr
 from typing import Union
 from textwrap import indent
-import import_expression
+
 import time
-from io import StringIO
-import mystbin
-import unicodedata
-import inspect
 
 
 class Kuma_Kuma(commands.Bot):
@@ -57,6 +47,7 @@ class Kuma_Kuma(commands.Bot):
         intents.members = True
         intents.message_content = True
         self._prefix = '?'
+        owner_ids = [144462063920611328]
         super().__init__(intents=intents, command_prefix=self._prefix, strip_after_prefix=True)
         self._message_timeout = 120
 
@@ -83,35 +74,8 @@ class Kuma_Kuma(commands.Bot):
         if message.author == self.user:
             return
 
-        # This is for our `REPL` sessions.
-        if message.channel.id in self.sessions:
-            return
-
         self._logger.info(f'On Message: {message.content}')
-        if str(message.channel.type).lower() not in ['news', 'private'] and str(message.channel.category).lower() not in ['staff', 'test_channels', 'gaming', 'info']:
-            if len(message.content) > 1500 and not message.content.startswith(self._prefix):
-                await message.reply('Hey your message was a little too long; *Kuma Kuma Bear* moved it to `Mystbin`')
-                await self.auto_on_mystbin(message)
-                return await message.delete()
-
         await super().on_message(message)
-
-    async def auto_on_mystbin(self, message: discord.Message):
-        """Converts a `discord.Message` into a Mystbin URL"""
-        mb_client = mystbin.Client()
-        paste = await mb_client.create_paste(filename=f'{message.author.name}', content=message.content)
-        await mb_client.close()
-        await message.channel.send(content=f"Here is {message.author.mention} Mystbin `url` \n> {paste.url}")
-
-    async def auto_on_hastebin(self, message: discord.Message):
-        """Converts a `discord.Message` into a Hastebin URL"""
-        url = "https://hastebin.com/documents "
-        if message.content.startswith(self._prefix):
-            message.content = message.content[8:]
-        async with aiohttp.ClientSession() as session:
-            session_post = await session.post(url=url, data=message.content)
-            response = json.loads(await session_post.text())
-        await message.channel.send(content=f"Here is {message.author.mention} Hastebin `url` \n> {url[:-10]}raw/{response['key']}")
 
     async def on_reaction_add(self, reaction: discord.Reaction, user: Union[discord.Member, discord.User]):
         """Called when a message has a reaction added to it. Similar to `on_message_edit()`, 
@@ -124,86 +88,8 @@ class Kuma_Kuma(commands.Bot):
             self._logger.info(
                 f'Emoji Used: ID: {reaction.emoji.id} Name: {reaction.emoji.name} by {user.name}')
 
-    def self_check(self, message: discord.Message) -> bool:
-        return message.author == self.user
 
-    async def _handle_eval(self, env, context: commands.Context, function, as_generator=False):
-        with RedirectedStdout() as otp:
-            try:
-                import_expression.exec(function, env)
-                func = env["func"]
-                ping = time.monotonic()
-                if not as_generator:
-                    res = await func()
-                else:
-                    res = None
-                    async for x in func():
-                        print(x)
-            except Exception as e:
-                if str(e) == "object async_generator can't be used in 'await' expression":
-                    return await self._handle_eval(env, context, function, True)
-
-                err = geterr()
-                try:
-                    err = err.split(
-                        "return compile(source, filename, mode, flags,")[1]
-                except:
-                    try:
-                        err = err.split("res = await func()")[1]
-                    except:
-                        pass
-                msg = f"n```py\n{err}\n```"
-                #msg = filterTxt(msg)
-                errorEm = discord.Embed(
-                    title="Eval Error", description=msg, color=discord.Color.red())
-                await context.send(embed=errorEm)
-                return
-            ping = time.monotonic() - ping
-            ping = ping * 1000
-            if res:
-                msg = f"```py\n{res}\n{otp}\n```"
-                #msg = filterTxt(msg)
-                returnedEm = discord.Embed(
-                    title="Returned", description=msg, color=discord.Color.green())
-                returnedEm.set_footer(text=f"Finished in {ping}ms")
-                await context.send(embed=returnedEm)
-            else:
-                msg = f"```py\n{otp}\n```"
-                #msg = filterTxt(msg)
-                outputEm = discord.Embed(
-                    title="Output", description=msg, color=discord.Color.green())
-                outputEm.set_footer(text=f"Finished in {ping}ms")
-                await context.send(embed=outputEm)
 Kuma = Kuma_Kuma()
-
-class RedirectedStdout:
-    def __init__(self):
-        self._stdout = None
-        self._string_io = None
-
-    def __enter__(self):
-        self._stdout = sys.stdout
-        sys.stdout = self._string_io = StringIO()
-        return self
-
-    def __exit__(self, type, value, traceback):
-        sys.stdout = self._stdout
-
-    def __str__(self):
-        return self._string_io.getvalue()
-
-
-def CodeBlockConvertor(code: str):
-    if code.startswith("```py") and code.endswith("```"):
-        code = code.replace("```py", "").replace("```", "")
-    return code
-
-
-def CharConvertor(char: Union[discord.Emoji, str]) -> Union[discord.Emoji, str]:
-    if type(char) == str:
-        return char.encode("unicode_escape").decode("ASCII")
-    if type(char) == discord.Emoji:
-        return char
 
 
 @Kuma.hybrid_group(name='kuma')
@@ -211,64 +97,8 @@ async def kuma(interaction: discord.Interaction):
     print()
 
 
-@kuma.command(invoke_without_command=True, name="eval", aliases=['```py', '```', 'py', 'python', 'run', 'exec', 'execute'], description="Evaluates the given code")
-@utils.author_check(user_id=144462063920611328)
-async def eval(context: commands.Context, *, code: CodeBlockConvertor):
-    Kuma._logger.info(f'{context.author.name} used {context.command.name}...')
-    await context.channel.typing()
-    env = {
-        "context": context,
-        "Kuma": Kuma,
-        "message": context.message,
-        "author": context.author,
-        "guild": context.guild,
-        "channel": context.channel,
-        "discord": discord,
-        "commands": commands,
-        "os": os,
-        "io": io,
-        "sys": sys,
-        "aiohttp": aiohttp
-    }
-
-    function = "async def func():\n" + indent(code, "    ")
-    function = function.splitlines()
-    x = function[-1].removeprefix("    ")
-    if not x.startswith("print") and not x.startswith("return") and not x.startswith(" ") and not x.startswith("yield") and not x.startswith("import"):
-        function.pop(function.index(function[-1]))
-        function.append(f"    return {x}")
-    function = '\n'.join(function)
-    await Kuma._handle_eval(env, context, function)
-
-
-@kuma.command(name='clear')
-@app_commands.choices(all=[Choice(name='True', value=1), Choice(name='False', value=0)])
-@app_commands.describe(all='Default\'s to True, removes ALL commands from selected Channel regardless of who sent them.')
-@utils.author_check(user_id=144462063920611328)
-async def clear(context: commands.Context, channel: discord.abc.GuildChannel = None, amount: app_commands.Range[int, 0, 100] = 50, all: Choice[int] = 1):
-    """Cleans up Messages sent by the Kuma. Limit 100"""
-    Kuma._logger.info(f'{context.author.name} used {context.command.name}...')
-    Kuma._context = context
-    await context.defer()
-
-    if channel == None or type(channel) == str:
-        # This should take the numeric value we pass in via ?kuma clear 100 turn into our amount
-        amount = channel
-        channel = context.channel
-
-    if type(all) == Choice:
-        all = all.value
-
-    if all == 1:
-        messages = await channel.purge(limit=amount, bulk=False)
-    else:
-        messages = await channel.purge(limit=amount, check=Kuma.self_check, bulk=False)
-
-    return await channel.send(f'Cleaned up **{len(messages)} {"messages" if len(messages) > 1 else "message"}**. Wow, look at all this space!', delete_after=Kuma._message_timeout)
-
-
 @kuma.command(name='sync')
-@utils.author_check(user_id=144462063920611328)
+@commands.is_owner()
 @app_commands.choices(local=[Choice(name='True', value=1), Choice(name='False', value=0)])
 @app_commands.choices(reset=[Choice(name='True', value=1), Choice(name='False', value=0)])
 async def sync(context: commands.Context, local: Choice[int] = True, reset: Choice[int] = False):
@@ -302,148 +132,5 @@ async def sync(context: commands.Context, local: Choice[int] = True, reset: Choi
         # Global command tree sync
         Kuma._logger.info(f'{Kuma.user.name} Commands Sync\'d Globally: {await Kuma.tree.sync(guild=None)}')
         await context.send(f'Successfully Sync\'d `{Kuma.user.name}s` Commands Globally...', ephemeral=True, delete_after=Kuma._message_timeout)
-
-
-@kuma.command(name='charinfo')
-async def charinfo(context: commands.Context, *, characters: str):
-    """Shows you information about a number of characters.
-    Only up to 25 characters at a time.
-    """
-    Kuma._logger.info(f'{context.author.name} used {context.command.name}...')
-
-    def to_string(c):
-        digit = f'{ord(c):x}'
-        name = unicodedata.name(c, 'Name not found.')
-        return f'`\\U{digit:>08}`: {name} - {c} \N{EM DASH} <http://www.fileformat.info/info/unicode/char/{digit}>'
-
-    msg = '\n'.join(map(to_string, characters))
-    if len(msg) > 2000:
-        return await context.send('Output too long to display.')
-    await context.send(msg)
-
-
-@kuma.command(name='mimic')
-@utils.author_check(user_id=144462063920611328)
-async def mimic(context: commands.Context):
-    """Invokes the previously run `command` with parameters."""
-    Kuma._logger.info(f'{context.author.name} used {context.command.name}...')
-    await context.send(f'*Kuma Kuma Kuma* `{Kuma._context.command.name}`')
-    await Kuma._context.reinvoke(restart=True)
-
-
-@kuma.command(name='ping')
-@utils.author_check(user_id=144462063920611328)
-async def ping(context: commands.Context):
-    """Pong..."""
-    Kuma._logger.info(f'{context.author.name} used {context.command.name}...')
-    Kuma._context = context
-    await context.send(f'Pong `{round(Kuma.latency * 1000)}ms`', ephemeral=True, delete_after=Kuma._message_timeout)
-
-
-@kuma.command(name='webhooks')
-@utils.author_check(user_id=144462063920611328)
-async def webhooks(context: commands.Context, channel: discord.abc.GuildChannel = None):
-    """Displays a channels webhooks by `Name` and `ID`"""
-    if channel == None:
-        channel = context.channel
-    channel_webhooks = "\n".join([f"**{x.name}** | ID: `{x.id}`" for x in await channel.webhooks()])
-    await context.send(f'> {channel.mention} Webhooks \n{channel_webhooks}')
-
-
-@kuma.command(name='hb')
-async def hastebin_me(context: commands.Context):
-    """Converts a `str` to a Haste bin url"""
-    await context.defer()
-    await Kuma.auto_on_hastebin(context.message)
-    await context.message.delete()
-
-
-@kuma.command(name='mb')
-async def mystbin_me(context: commands.Context):
-    """Converts a `str` to a Mystbin url"""
-    await context.defer()
-    await Kuma.auto_on_mystbin(context.message)
-    await context.message.delete()
-
-
-@kuma.command(name='link')
-async def url_linking(context: commands.Context, var: str):
-    """Provides a Useful URL based upon the var parameter"""
-    listing = {
-        # Gatekeeper Github Links
-        "gatekeeper": "https://github.com/k8thekat/GatekeeperV2",
-        "gk": "https://github.com/k8thekat/GatekeeperV2",
-
-        # Cube Coders Links
-        "amp": "https://discord.gg/cubecoders",
-        "cubecoders": "https://cubecoders.com/",
-        "cc": "https://cubecoders.com/",
-
-        # Discord.py Server Links
-        "dpy": "https://discord.gg/dpy",
-        "d.py": "https://discord.gg/dpy",
-        "discord.py": "https://discord.gg/dpy",
-        "dpy_docs": "https://discordpy.readthedocs.io/en/stable/",
-
-        # Gatekeeper Wiki Links
-        "wiki": "https://github.com/k8thekat/GatekeeperV2/wiki",
-        "commands": "https://github.com/k8thekat/GatekeeperV2/wiki/Commands",
-        "perms": "https://github.com/k8thekat/GatekeeperV2/wiki/Permissions",
-        "banners": "https://github.com/k8thekat/GatekeeperV2/wiki/Server-Banners",
-        "whitelist": "https://github.com/k8thekat/GatekeeperV2/wiki/Auto-Whitelisting",
-        "autowl": "https://github.com/k8thekat/GatekeeperV2/wiki/Auto-Whitelisting",
-        "wl": "https://github.com/k8thekat/GatekeeperV2/wiki/Auto-Whitelisting",
-
-        # Patreon/Donation Links
-        "patreon": "https://www.patreon.com/Gatekeeperv2"}
-
-    var = var.lower()
-    if var in listing:
-        await context.send(f'{listing[var]}')
-    elif var == "?":
-        await context.send(f"Possible Entries:\n> {(', ').join([key.title() for key in listing.keys()])}")
-
-
-@kuma.command(name='source')
-async def source(context: commands.Context, *, command: str = None):
-    """Displays my full source code or for a specific command.
-    To display the source code of a subcommand you can separate it by
-    periods, e.g. tag.create for the create subcommand of the tag command
-    or by spaces.
-    """
-    source_url = 'https://github.com/k8thekat/Kuma_Kuma'
-    branch = 'main'
-    if command is None:
-        return await context.send(source_url)
-
-    if command == 'help':
-        src = type(Kuma.help_command)
-        module = src.__module__
-        filename = inspect.getsourcefile(src)
-    else:
-        obj = Kuma.get_command(command.replace('.', ' '))
-        if obj is None:
-            return await context.send('Could not find command.')
-
-        # since we found the command we're looking for, presumably anyway, let's
-        # try to access the code itself
-        src = obj.callback.__code__
-        module = obj.callback.__module__
-        filename = src.co_filename
-
-    lines, firstlineno = inspect.getsourcelines(src)
-    if not module.startswith('discord'):
-        # not a built-in command
-        if filename is None:
-            return await context.send('Could not find source for command.')
-
-        location = os.path.relpath(filename).replace('\\', '/')
-    else:
-        location = module.replace('.', '/') + '.py'
-        source_url = 'https://github.com/k8thekat/Kuma_Kuma'
-        branch = 'main'
-
-    final_url = f'<{source_url}/blob/{branch}/{location}#L{firstlineno}-L{firstlineno + len(lines) - 1}>'
-    await context.send(final_url)
 
 Kuma.run(tokens.token, reconnect=True, log_handler=None)
