@@ -29,26 +29,25 @@ import os
 
 import discord
 from discord.ext import commands
+from kuma_kuma import Kuma_Kuma
 
 # This is required on each cog.
 Dependencies = None
 
 
 class Repl(commands.Cog):
-    def __init__(self, client: discord.Client) -> None:
+    def __init__(self, client: Kuma_Kuma) -> None:
         self._client = client
         self._name = os.path.basename(__file__).title()
         self._logger = logging.getLogger()
         self._logger.info(f'**SUCCESS** Initializing {self._name} ')
 
-    @property
-    def sessions(self) -> int:
-        return self._client.sessions
+   
 
     @commands.Cog.listener('on_message')
     async def on_message_listener(self, message: discord.Message):
         # This is for our `REPL` sessions.
-        if message.channel.id in self.sessions:
+        if message.channel.id in self._client.sessions:
             return
 
     @commands.command(hidden=True)
@@ -65,11 +64,11 @@ class Repl(commands.Cog):
             '_': None,
         }
 
-        if ctx.channel.id in self.sessions:
+        if ctx.channel.id in self._client.sessions:
             await ctx.send('Already running a REPL session in this channel. Exit it with `quit`.')
             return
 
-        self.sessions.add(ctx.channel.id)
+        self._client.sessions.add(ctx.channel.id)
         await ctx.send('Enter code to execute or evaluate. `exit()` or `quit` to exit.')
 
         def check(message: discord.Message):
@@ -80,14 +79,14 @@ class Repl(commands.Cog):
                 response = await self._client.wait_for('message', check=check, timeout=10.0 * 60.0)
             except asyncio.TimeoutError:
                 await ctx.send('Exiting REPL session.')
-                self.sessions.remove(ctx.channel.id)
+                self._client.sessions.remove(ctx.channel.id)
                 break
 
             cleaned = self.cleanup_code(response.content)
 
             if cleaned in ('quit', 'exit', 'exit()'):
                 await ctx.send('Exiting.')
-                self.sessions.remove(ctx.channel.id)
+                self._client.sessions.remove(ctx.channel.id)
                 return
 
             executor = exec

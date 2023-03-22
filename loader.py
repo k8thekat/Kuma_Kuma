@@ -4,14 +4,13 @@ import logging
 import importlib.util
 import traceback
 
-import discord
-import discord.ext
+from discord.ext import commands
 
 
 class Handler():
     """This is the Basic Module Loader for AMP to Discord Integration/Interactions"""
 
-    def __init__(self, client: discord.Client):
+    def __init__(self, client: commands.Bot):
         self._client = client
         self._cwd = pathlib.Path.cwd()
         self._name = os.path.basename(__file__).title()
@@ -37,14 +36,18 @@ class Handler():
                     continue
 
                 module_name = script.name[:-3].capitalize()  # File name ofc.
-                spec = importlib.util.spec_from_file_location(
-                    module_name, script)
-                class_module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(class_module)
+                spec = importlib.util.spec_from_file_location(module_name, script)
+                class_module = importlib.util.module_from_spec(spec) #type:ignore
+                spec.loader.exec_module(class_module) #type:ignore
+                    
+                #module_dependencies: list[str] | None = getattr(class_module, f'Dependencies', None)
+                try:
+                    module_dependencies: list[str] | None = class_module.Dependencies
+                except AttributeError:
+                    module_dependencies = None
 
-                module_dependencies = getattr(class_module, f'Dependencies')
                 missing_depen = False
-                if module_dependencies != None:
+                if module_dependencies is not None:
                     for dependency in module_dependencies:
                         # If the cog we need isnt loaded; skip. We will come back around to it.
                         if dependency.lower() not in loaded_cogs:
@@ -52,6 +55,7 @@ class Handler():
                             break
 
                     if missing_depen:
+                        self._logger.warn(f'{module_name} is ')
                         continue
 
                 cog = f'{path}.{script.name[:-3]}'
@@ -74,12 +78,12 @@ class Handler():
                     self._logger.info(
                         f'**FINISHED LOADING** {self._name} -> **{cog}**')
 
-                except discord.ext.commands.errors.ExtensionAlreadyLoaded:
+                except commands.errors.ExtensionAlreadyLoaded: 
                     cur_cog_file_list.remove(script)
+                    self._logger.error(f'**ERROR** Loading Cog ** - {cog} ExtensionAlreadyLoaded {traceback.format_exc()}')
                     continue
 
                 except FileNotFoundError as e:
-                    self._logger.error(
-                        f'**ERROR** Loading Cog ** - File Not Found {traceback.format_exc()}')
+                    self._logger.error(f'**ERROR** Loading Cog ** - {cog} File Not Found {traceback.format_exc()}')
 
         self._logger.info(f'**All Cog Modules Loaded**')

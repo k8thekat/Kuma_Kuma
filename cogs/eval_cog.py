@@ -24,7 +24,7 @@ from discord.ext import commands
 
 import os
 import logging
-from typing import Union
+from typing import Annotated
 import io
 import sys
 import aiohttp
@@ -34,33 +34,31 @@ from io import StringIO
 import import_expression
 import time
 
+from utils.converter import CodeBlockConverter
 
 Dependencies = None
 
 
 class Eval(commands.Cog):
-    def __init__(self, client=commands.Bot) -> None:
+    def __init__(self, client: commands.Bot) -> None:
         self._client = client
         self._name = os.path.basename(__file__).title()
         self._logger = logging.getLogger()
         self._logger.info(f'**SUCCESS** Initializing {self._name} ')
 
-    def CodeBlockConvertor(code: str):
-        if code.startswith("```py") and code.endswith("```"):
-            code = code.replace("```py", "").replace("```", "")
-        return code
+    
 
-    def CharConvertor(char: Union[discord.Emoji, str]) -> Union[discord.Emoji, str]:
-        if type(char) == str:
-            return char.encode("unicode_escape").decode("ASCII")
-        if type(char) == discord.Emoji:
-            return char
+    # def CharConvertor(self, char: Union[discord.Emoji, str]) -> Union[discord.Emoji, str]:
+    #     if isinstance(char, str):
+    #         return char.encode("unicode_escape").decode("ASCII")
+    #     else:
+    #         return char
 
     @commands.command(invoke_without_command=True, name="eval", aliases=['```py', '```', 'py', 'python', 'run', 'exec', 'execute'], description="Evaluates the given code")
     @commands.is_owner()
-    async def eval(self, context: commands.Context, *, code: CodeBlockConvertor):
+    async def eval(self, context: commands.Context, *, code: Annotated[str, CodeBlockConverter]):
         self._logger.info(
-            f'{context.author.name} used {context.command.name}...')
+            f'{context.author.name} used {context.command}...')
         await context.channel.typing()
         env = {
             "context": context,
@@ -113,26 +111,18 @@ class Eval(commands.Cog):
                     except:
                         pass
                 msg = f"n```py\n{err}\n```"
-                errorEm = discord.Embed(
-                    title="Eval Error", description=msg, color=discord.Color.red())
-                return await context.send(embed=errorEm)
+                return await context.send(content= msg)
 
             ping = time.monotonic() - ping
             ping = ping * 1000
 
             if res:
                 msg = f"```py\n{res}\n{otp}\n```"
-                returnedEm = discord.Embed(
-                    title="Returned", description=msg, color=discord.Color.green())
-                returnedEm.set_footer(text=f"Finished in {ping}ms")
-                await context.send(embed=returnedEm)
+                await context.send(content= msg)
 
             else:
                 msg = f"```py\n{otp}\n```"
-                outputEm = discord.Embed(
-                    title="Output", description=msg, color=discord.Color.green())
-                outputEm.set_footer(text=f"Finished in {ping}ms")
-                await context.send(embed=outputEm)
+                await context.send(content= msg)
 
 
 async def setup(client):
@@ -153,4 +143,6 @@ class RedirectedStdout:
         sys.stdout = self._stdout
 
     def __str__(self):
-        return self._string_io.getvalue()
+        if self._string_io:
+            return self._string_io.getvalue()
+        return ''

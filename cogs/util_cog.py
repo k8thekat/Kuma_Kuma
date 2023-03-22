@@ -37,58 +37,75 @@ import time
 import mystbin
 import unicodedata
 import inspect
-
+from typing import Union
 
 # Discord Libs
 import discord
 from discord.ext import commands
 from discord import app_commands
-from discord.app_commands import Choice
+
+from kuma_kuma import Kuma_Kuma
 
 Dependencies = None
 
 
 class Util(commands.Cog):
-    def __init__(self, client=commands.Bot) -> None:
-        self._client = client
-        self._name = os.path.basename(__file__).title()
+    PATTERN: re.Pattern[str] = re.compile(
+        r'`{3}(?P<LANG>\w+)?\n?(?P<CODE>(?:(?!`{3}).)+)\n?`{3}', flags=re.DOTALL | re.MULTILINE)
+
+    def __init__(self, client: Kuma_Kuma) -> None:
+        self._client: Kuma_Kuma = client
+        self._name: str = os.path.basename(__file__).title()
         self._logger = logging.getLogger()
         self._logger.info(f'**SUCCESS** Initializing {self._name} ')
+        self._mb_client = mystbin.Client()
+
+    async def cog_unload(self) -> None:
+        await self._mb_client.close()
 
     @property
     def _uptime(self) -> timedelta:
         return timedelta(seconds=(round(time.time() - self._client._start_time)))
 
-    @property
-    def _message_timeout(self) -> int:
-        return self._client._message_timeout
-
-    @property
-    def _prefix(self) -> str:
-        return self._client._prefix
-
     @commands.Cog.listener('on_message')
-    async def on_message_listener(self, message: discord.Message):
-        if str(message.channel.type).lower() not in ['news', 'private'] and str(message.channel.category).lower() not in ['staff', 'test_channels', 'gaming', 'info']:
-            if len(message.content) > 1500 and not message.content.startswith(self._prefix):
-                await message.reply('Hey your message was a little too long; *Kuma Kuma Bear* moved it to `Mystbin`')
+    async def on_message_listener(self, message: discord.Message) -> None:
+        if isinstance(message.channel, discord.abc.GuildChannel) and message.channel.type is not discord.ChannelType.news and str(message.channel.category).lower() not in ['staff', 'dev channels', 'gaming', 'info']:
+            # So if our message is over 1k char length and doesn't use our prefix; Lets push it to a mystbin URL.
+            if len(message.content) > 1000 and not message.content.startswith(self._client._prefix):
                 await self._auto_on_mystbin(message)
-                return await message.delete()
 
     def _self_check(self, message: discord.Message) -> bool:
         return message.author == self._client.user
 
-    async def _auto_on_mystbin(self, message: discord.Message):
+    async def _auto_on_mystbin(self, message: discord.Message) -> None:
         """Converts a `discord.Message` into a Mystbin URL"""
-        mb_client = mystbin.Client()
-        paste = await mb_client.create_paste(filename=f'{message.author.name}', content=message.content)
-        await mb_client.close()
-        await message.channel.send(content=f"Here is {message.author.mention} Mystbin `url` \n> {paste.url}")
+        content = message.content
 
-    async def _auto_on_hastebin(self, message: discord.Message):
+        files: list[mystbin.File] = []
+
+        should_upload_to_bin: bool = False
+
+        for idx, match in enumerate(self.PATTERN.finditer(content), start=1):
+            language: str = match.group('LANG') or 'python'
+            filename: str = f'File-{idx}.{language}'
+            file_content: str = match.group('CODE')
+
+            files.append(mystbin.File(filename=filename, content=file_content))
+            content = content.replace(match.group(), f'`[{filename}]`')
+
+            should_upload_to_bin = should_upload_to_bin or len(
+                file_content) > 1100
+        if should_upload_to_bin:
+            paste = await self._mb_client.create_multifile_paste(files=files)
+
+            author = discord.utils.escape_markdown(str(message.author))
+            await message.channel.send(f"'Hey {author}, *Kuma Kuma Bear* moved your codeblock(s) to `Mystbin`'\n\n{content}\n\n{paste.url}")
+            await message.delete()
+
+    async def _auto_on_hastebin(self, message: discord.Message) -> None:
         """Converts a `discord.Message` into a Hastebin URL"""
         url = "https://hastebin.com/documents "
-        if message.content.startswith(self._prefix):
+        if message.content.startswith(self._client._prefix):
             message.content = message.content[8:]
         async with aiohttp.ClientSession() as session:
             session_post = await session.post(url=url, data=message.content)
@@ -157,40 +174,29 @@ class Util(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
         await ctx.send(embed=embed)
 
-    @commands.command(name='clear')
-    @app_commands.choices(all=[Choice(name='True', value=1), Choice(name='False', value=0)])
-    @app_commands.describe(all='Default\'s to True, removes ALL commands from selected Channel regardless of who sent them.')
-    @commands.is_owner()
-    async def clear(self, context: commands.Context, channel: discord.abc.GuildChannel = None, amount: app_commands.Range[int, 0, 100] = 50, all: Choice[int] = 1):
+    @app_commands.command(name='clear')
+    @app_commands.describe(all='Default\'s to False, removes ALL messages from selected Channel regardless of who sent them.')
+    @app_commands.default_permissions(manage_messages=True)
+    async def clear(self, interaction: discord.Interaction, channel: Union[discord.VoiceChannel, discord.TextChannel, discord.Thread, None], amount: app_commands.Range[int, 0, 100] = 15, all: bool = False):
         """Cleans up Messages sent by anyone. Limit 100"""
-        self._logger.info(
-            f'{context.author.name} used {context.command.name}...')
-        self._context = context
-        await context.defer()
+        await interaction.response.defer()
 
+        assert isinstance(
+            interaction.channel, (discord.VoiceChannel, discord.TextChannel, discord.Thread))
+        channel = channel or interaction.channel  # type:ignore
 
-        if channel == None or type(channel) == str:
-            # This should take the numeric value we pass in via ?kuma clear 100 turn into our amount
-            amount = channel
-            channel = context.channel
-
-        if type(all) == Choice:
-            all = all.value
-
-        if all == 1:
+        if all:
             messages = await channel.purge(limit=amount, bulk=False)
         else:
             messages = await channel.purge(limit=amount, check=self._self_check, bulk=False)
 
-        return await channel.send(f'Cleaned up **{len(messages)} {"messages" if len(messages) > 1 else "message"}**. Wow, look at all this space!', delete_after=self._message_timeout)
+        return await channel.send(f'Cleaned up **{len(messages)} {"messages" if len(messages) > 1 else "message"}**. Wow, look at all this space!', delete_after=self._client._message_timeout)
 
     @commands.command(name='charinfo')
     async def charinfo(self, context: commands.Context, *, characters: str):
         """Shows you information about a number of characters.
         Only up to 25 characters at a time.
         """
-        self._logger.info(
-            f'{context.author.name} used {context.command.name}...')
 
         def to_string(c):
             digit = f'{ord(c):x}'
@@ -206,24 +212,22 @@ class Util(commands.Cog):
     @commands.is_owner()
     async def mimic(self, context: commands.Context):
         """Invokes the previously run `command` with parameters."""
-        self._logger.info(
-            f'{context.author.name} used {context.command.name}...')
-        await context.send(f'*Kuma Kuma Kuma* `{self._context.command.name}`')
+        await context.send(f'*Kuma Kuma Kuma* `{self._context.command}`')
         await self._context.reinvoke(restart=True)
 
     @commands.command(name='ping')
     async def ping(self, context: commands.Context):
         """Pong..."""
-        self._logger.info(
-            f'{context.author.name} used {context.command.name}...')
         self._context = context
-        await context.send(f'Pong `{round(self._client.latency * 1000)}ms`', ephemeral=True, delete_after=self._message_timeout)
+        await context.send(f'Pong `{round(self._client.latency * 1000)}ms`', ephemeral=True, delete_after=self._client._message_timeout)
 
     @commands.command(name='webhooks')
-    async def webhooks(context: commands.Context, channel: discord.abc.GuildChannel = None):
+    async def webhooks(self, context: commands.Context, channel: Union[discord.VoiceChannel, discord.TextChannel, discord.StageChannel, discord.ForumChannel, None]):
         """Displays a channels webhooks by `Name` and `ID`"""
-        if channel == None:
-            channel = context.channel
+
+        assert isinstance(context.channel, (discord.VoiceChannel, discord.TextChannel, discord.StageChannel, discord.ForumChannel))
+
+        channel = channel or context.channel
         channel_webhooks = "\n".join([f"**{webhook.name}** | ID: `{webhook.id}`" for webhook in await channel.webhooks()])
         await context.send(f'> {channel.mention} Webhooks \n{channel_webhooks}')
 
@@ -242,7 +246,7 @@ class Util(commands.Cog):
         await context.message.delete()
 
     @commands.command(name='link')
-    async def url_linking(context: commands.Context, var: str):
+    async def url_linking(self, context: commands.Context, var: str):
         """Provides a Useful URL based upon the var parameter"""
         listing = {
             # Gatekeeper Github Links
@@ -279,12 +283,13 @@ class Util(commands.Cog):
             await context.send(f"Possible Entries:\n> {(', ').join([key.title() for key in listing.keys()])}")
 
     @commands.command(name='source')
-    async def source(self, context: commands.Context, *, command: str = None):
+    async def source(self, context: commands.Context, *, command: Union[str, None]):
         """Displays my full source code or for a specific command.
         To display the source code of a subcommand you can separate it by
         periods, e.g. tag.create for the create subcommand of the tag command
         or by spaces.
         """
+
         source_url = 'https://github.com/k8thekat/Kuma_Kuma'
         branch = 'main'
         if command is None:

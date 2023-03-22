@@ -26,20 +26,19 @@ import tokens
 import loader
 
 import discord
-from discord import app_commands
-from discord.app_commands import Choice
 from discord.ext import commands
 
-
 import logging
-from traceback import format_exc as geterr
-from typing import Union
-from textwrap import indent
-
+from typing import Union, TYPE_CHECKING
 import time
-
+from utils.context import KumaContext
 
 class Kuma_Kuma(commands.Bot):
+
+    if TYPE_CHECKING:
+        user: discord.ClientUser
+
+
     def __init__(self):
         logger.init()
         self._logger = logging.getLogger()
@@ -56,59 +55,64 @@ class Kuma_Kuma(commands.Bot):
         self.sessions: set[int] = set()
 
         self._start_time = time.time()
-
+    
     async def setup_hook(self) -> None:
         # Modular loading of all cogs.
         self._handler = loader.Handler(self)
         await self._handler.cog_auto_loader()
-        # return await super().setup_hook()
 
     async def on_ready(self):
         self._logger.info('Kuma Kuma Bear <3')
 
-    async def on_interaction(self, interaction: discord.Interaction):
-        self._logger.info('Interaction Occured')
-        # print(interaction.command.name)
-
     async def on_message(self, message: discord.Message):
         if message.author == self.user:
             return
-
-        self._logger.info(f'On Message: {message.content}')
         await super().on_message(message)
+
+    async def on_command(self, context: commands.Context) -> None:
+        self._logger.info(f'{context.author.name} used {context.command}...')
 
     async def on_reaction_add(self, reaction: discord.Reaction, user: Union[discord.Member, discord.User]):
         """Called when a message has a reaction added to it. Similar to `on_message_edit()`, 
         if the message is not found in the internal message cache, 
         then this event will not be called. Consider using `on_raw_reaction_add()` instead."""
-        if type(reaction.emoji) == str:
+        if isinstance(reaction.emoji, str):
             self._logger.info(
                 f'Emoji Used: {reaction.emoji} Unicode: {reaction.emoji.encode("unicode-escape").decode("ASCII")} by {user.name}')
         else:
             self._logger.info(
                 f'Emoji Used: ID: {reaction.emoji.id} Name: {reaction.emoji.name} by {user.name}')
 
+    async def get_context(self, origin: Union[discord.Interaction, discord.Message], /, *, cls=KumaContext) -> KumaContext:
+        return await super().get_context(origin, cls=cls)
 
 Kuma = Kuma_Kuma()
 
 
 @Kuma.hybrid_group(name='kuma')
-async def kuma(interaction: discord.Interaction):
+async def kuma(context: commands.Context):
     print()
+
+
+@kuma.command(name='reload')
+@commands.is_owner()
+async def reload(context: commands.Context):
+    """Reloads all cogs inside the cogs folder."""
+    Kuma._logger.info(f'{context.author.name} used {context.command}...')
+    await Kuma._handler.cog_auto_loader(reload=True)
+    await context.send(f'**SUCCESS** Reloading All Cogs ', ephemeral=True, delete_after=Kuma._message_timeout)
 
 
 @kuma.command(name='sync')
 @commands.is_owner()
-@app_commands.choices(local=[Choice(name='True', value=1), Choice(name='False', value=0)])
-@app_commands.choices(reset=[Choice(name='True', value=1), Choice(name='False', value=0)])
-async def sync(context: commands.Context, local: Choice[int] = True, reset: Choice[int] = False):
+async def sync(context: commands.Context, local: bool = True, reset: bool = False):
     """Syncs Kuma Commands to the current guild this command was used in."""
-    Kuma._logger.info(f'{context.author.name} used {context.command.name}...')
+    Kuma._logger.info(f'{context.author.name} used {context.command}...')
     await context.defer()
     # This keeps our DB Guild_ID Current.
 
-    if ((type(reset) == bool) and (reset == True)) or ((type(reset)) == Choice and (reset.value() == 1)):
-        if ((type(local)) == bool and (local == True)) or ((type(local) == Choice) and (local.value() == 1)):
+    if reset == True:
+        if local == True:
             # Local command tree reset
             Kuma.tree.clear_commands(guild=context.guild)
             Kuma._logger.info(f'{Kuma.user.name} Commands Reset Locally and Sync\'d: {await Kuma.tree.sync(guild=context.guild)}')
@@ -122,15 +126,17 @@ async def sync(context: commands.Context, local: Choice[int] = True, reset: Choi
         else:
             return await context.send('**ERROR** You do not have permission to reset the commands.', ephemeral=True, delete_after=Kuma._message_timeout)
 
-    if ((type(local) == bool) and (local == True)) or ((type(local) == Choice) and (local.value() == 1)):
+    if local == True:
         # Local command tree sync
-        Kuma.tree.copy_global_to(guild=context.guild)
+        Kuma.tree.copy_global_to(guild=context.guild) #type:ignore
         Kuma._logger.info(f'{Kuma.user.name} Commands Sync\'d Locally: {await Kuma.tree.sync(guild=context.guild)}')
-        return await context.send(f'Successfully Sync\'d `{Kuma.user.name}s` Commands to {context.guild.name}...', ephemeral=True, delete_after=Kuma._message_timeout)
+        return await context.send(f'Successfully Sync\'d `{Kuma.user.name}s` Commands to {context.guild}...', ephemeral=True, delete_after=Kuma._message_timeout)
 
     elif context.author.id == 144462063920611328:
         # Global command tree sync
         Kuma._logger.info(f'{Kuma.user.name} Commands Sync\'d Globally: {await Kuma.tree.sync(guild=None)}')
         await context.send(f'Successfully Sync\'d `{Kuma.user.name}s` Commands Globally...', ephemeral=True, delete_after=Kuma._message_timeout)
 
-Kuma.run(tokens.token, reconnect=True, log_handler=None)
+if __name__ == "__main__":
+    Kuma.run(tokens.token, reconnect=True, log_handler=None)
+
