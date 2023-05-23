@@ -36,18 +36,16 @@ Dependencies = None
 
 
 class Repl(commands.Cog):
-    def __init__(self, client: Kuma_Kuma) -> None:
-        self._client = client
-        self._name = os.path.basename(__file__).title()
+    def __init__(self, bot: Kuma_Kuma) -> None:
+        self._bot: Kuma_Kuma = bot
+        self._name: str = os.path.basename(__file__).title()
         self._logger = logging.getLogger()
         self._logger.info(f'**SUCCESS** Initializing {self._name} ')
-
-   
 
     @commands.Cog.listener('on_message')
     async def on_message_listener(self, message: discord.Message):
         # This is for our `REPL` sessions.
-        if message.channel.id in self._client.sessions:
+        if message.channel.id in self._bot.sessions:
             return
 
     @commands.command(hidden=True)
@@ -56,7 +54,7 @@ class Repl(commands.Cog):
         """Launches an interactive REPL session."""
         variables = {
             'ctx': ctx,
-            'bot': self._client,
+            'bot': self._bot,
             'message': ctx.message,
             'guild': ctx.guild,
             'channel': ctx.channel,
@@ -64,11 +62,11 @@ class Repl(commands.Cog):
             '_': None,
         }
 
-        if ctx.channel.id in self._client.sessions:
+        if ctx.channel.id in self._bot.sessions:
             await ctx.send('Already running a REPL session in this channel. Exit it with `quit`.')
             return
 
-        self._client.sessions.add(ctx.channel.id)
+        self._bot.sessions.add(ctx.channel.id)
         await ctx.send('Enter code to execute or evaluate. `exit()` or `quit` to exit.')
 
         def check(message: discord.Message):
@@ -76,17 +74,17 @@ class Repl(commands.Cog):
 
         while True:
             try:
-                response = await self._client.wait_for('message', check=check, timeout=10.0 * 60.0)
+                response = await self._bot.wait_for('message', check=check, timeout=10.0 * 60.0)
             except asyncio.TimeoutError:
                 await ctx.send('Exiting REPL session.')
-                self._client.sessions.remove(ctx.channel.id)
+                self._bot.sessions.remove(ctx.channel.id)
                 break
 
             cleaned = self.cleanup_code(response.content)
 
             if cleaned in ('quit', 'exit', 'exit()'):
                 await ctx.send('Exiting.')
-                self._client.sessions.remove(ctx.channel.id)
+                self._bot.sessions.remove(ctx.channel.id)
                 return
 
             executor = exec
@@ -154,5 +152,5 @@ class Repl(commands.Cog):
         return f'```py\n{e.text}{"^":>{e.offset}}\n{e.__class__.__name__}: {e}```'
 
 
-async def setup(client):
-    await client.add_cog(Repl(client))
+async def setup(bot: Kuma_Kuma):
+    await bot.add_cog(Repl(bot))

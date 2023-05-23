@@ -21,7 +21,7 @@
 '''
 from discord.ui import Button,View
 from typing import Union, Optional
-from discord import ButtonStyle
+from discord import ButtonStyle, Interaction, SelectOption
 from discord import Emoji, PartialEmoji
 
 class RoleButton(Button):
@@ -33,3 +33,8 @@ class ReactionRoleView(View):
     def __init__(self, *, timeout: Union[float, None] = 180, custom_id: str, button_label: str, button_emoji: Union[str, Emoji, PartialEmoji, None]) -> None:
         super().__init__(timeout=timeout)
         self.add_item(RoleButton(custom_id= custom_id, label= button_label, emoji= button_emoji))
+
+
+    
+
+     

@@ -34,15 +34,16 @@ from io import StringIO
 import import_expression
 import time
 
+from kuma_kuma import Kuma_Kuma
 from utils.converter import CodeBlockConverter
 
 Dependencies = None
 
 
 class Eval(commands.Cog):
-    def __init__(self, client: commands.Bot) -> None:
-        self._client = client
-        self._name = os.path.basename(__file__).title()
+    def __init__(self, bot: Kuma_Kuma) -> None:
+        self._bot: Kuma_Kuma = bot
+        self._name: str = os.path.basename(__file__).title()
         self._logger = logging.getLogger()
         self._logger.info(f'**SUCCESS** Initializing {self._name} ')
 
@@ -62,7 +63,7 @@ class Eval(commands.Cog):
         await context.channel.typing()
         env = {
             "context": context,
-            "Kuma": self._client,
+            "kuma": self._bot,
             "message": context.message,
             "author": context.author,
             "guild": context.guild,
@@ -125,8 +126,8 @@ class Eval(commands.Cog):
                 await context.send(content= msg)
 
 
-async def setup(client):
-    await client.add_cog(Eval(client))
+async def setup(bot:Kuma_Kuma):
+    await bot.add_cog(Eval(bot))
 
 
 class RedirectedStdout:

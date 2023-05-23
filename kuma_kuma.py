@@ -21,17 +21,25 @@
    02110-1301, USA. 
 
 '''
+import asyncio
+import contextlib
+import os
+from threading import current_thread, Thread
 import logger
-import tokens
+from dotenv import load_dotenv
+
 import loader
 
 import discord
 from discord.ext import commands
+from discord import Intents
+from asqlite import Pool
 
 import logging
-from typing import Union, TYPE_CHECKING
+from typing import Union, TYPE_CHECKING, Any, Coroutine
 import time
 from utils.context import KumaContext
+from db import Kuma_DB
 
 class Kuma_Kuma(commands.Bot):
 
@@ -40,13 +48,12 @@ class Kuma_Kuma(commands.Bot):
 
 
     def __init__(self):
-        logger.init()
         self._logger = logging.getLogger()
-        intents = discord.Intents.default()
+        intents: Intents = discord.Intents.default()
         intents.members = True
         intents.message_content = True
         self._prefix = '?'
-        owner_ids = [144462063920611328]
+        owner_ids: list[int] = [144462063920611328]
         super().__init__(intents=intents, command_prefix=self._prefix, strip_after_prefix=True)
         self._message_timeout = 120
 
@@ -54,17 +61,19 @@ class Kuma_Kuma(commands.Bot):
         # This is for REPL Sessions
         self.sessions: set[int] = set()
 
-        self._start_time = time.time()
+        self._start_time: float = time.time()
     
     async def setup_hook(self) -> None:
         # Modular loading of all cogs.
+        #self._db = Kuma_DB()
+        #self._db_pool: Coroutine[Any, Any, Pool] = self._db._dev_return()
         self._handler = loader.Handler(self)
         await self._handler.cog_auto_loader()
 
-    async def on_ready(self):
+    async def on_ready(self) -> None:
         self._logger.info('Kuma Kuma Bear <3')
 
-    async def on_message(self, message: discord.Message):
+    async def on_message(self, message: discord.Message) -> None:
         if message.author == self.user:
             return
         await super().on_message(message)
@@ -72,7 +81,7 @@ class Kuma_Kuma(commands.Bot):
     async def on_command(self, context: commands.Context) -> None:
         self._logger.info(f'{context.author.name} used {context.command}...')
 
-    async def on_reaction_add(self, reaction: discord.Reaction, user: Union[discord.Member, discord.User]):
+    async def on_reaction_add(self, reaction: discord.Reaction, user: Union[discord.Member, discord.User]) -> None:
         """Called when a message has a reaction added to it. Similar to `on_message_edit()`, 
         if the message is not found in the internal message cache, 
         then this event will not be called. Consider using `on_raw_reaction_add()` instead."""
@@ -85,20 +94,19 @@ class Kuma_Kuma(commands.Bot):
 
     async def get_context(self, origin: Union[discord.Interaction, discord.Message], /, *, cls=KumaContext) -> KumaContext:
         return await super().get_context(origin, cls=cls)
+    
 
 Kuma = Kuma_Kuma()
-
-
 @Kuma.hybrid_group(name='kuma')
-async def kuma(context: commands.Context):
+async def kuma(context: commands.Context) -> None:
     print()
 
 
 @kuma.command(name='reload')
 @commands.is_owner()
-async def reload(context: commands.Context):
+async def reload(context: commands.Context) -> None:
     """Reloads all cogs inside the cogs folder."""
-    Kuma._logger.info(f'{context.author.name} used {context.command}...')
+    #Kuma._logger.info(f'{context.author.name} used {context.command}...')
     await Kuma._handler.cog_auto_loader(reload=True)
     await context.send(f'**SUCCESS** Reloading All Cogs ', ephemeral=True, delete_after=Kuma._message_timeout)
 
@@ -107,7 +115,7 @@ async def reload(context: commands.Context):
 @commands.is_owner()
 async def sync(context: commands.Context, local: bool = True, reset: bool = False):
     """Syncs Kuma Commands to the current guild this command was used in."""
-    Kuma._logger.info(f'{context.author.name} used {context.command}...')
+    #Kuma._logger.info(f'{context.author.name} used {context.command}...')
     await context.defer()
     # This keeps our DB Guild_ID Current.
 
@@ -137,6 +145,20 @@ async def sync(context: commands.Context, local: bool = True, reset: bool = Fals
         Kuma._logger.info(f'{Kuma.user.name} Commands Sync\'d Globally: {await Kuma.tree.sync(guild=None)}')
         await context.send(f'Successfully Sync\'d `{Kuma.user.name}s` Commands Globally...', ephemeral=True, delete_after=Kuma._message_timeout)
 
+
+async def main() -> None:
+    cur_thread: Thread = current_thread()
+    cur_thread.name = "Kuma Kuma Bear"
+    token: str = os.environ.get("TOKEN", "")
+
+    async with Kuma:
+        await Kuma.start(token)
+
+
 if __name__ == "__main__":
-    Kuma.run(tokens.token, reconnect=True, log_handler=None)
+   load_dotenv()
+   logger.init()
+
+   with contextlib.suppress(KeyboardInterrupt, RuntimeError, asyncio.CancelledError):
+       asyncio.run(main())
 

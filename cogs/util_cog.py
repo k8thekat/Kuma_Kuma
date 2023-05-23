@@ -53,8 +53,8 @@ class Util(commands.Cog):
     PATTERN: re.Pattern[str] = re.compile(
         r'`{3}(?P<LANG>\w+)?\n?(?P<CODE>(?:(?!`{3}).)+)\n?`{3}', flags=re.DOTALL | re.MULTILINE)
 
-    def __init__(self, client: Kuma_Kuma) -> None:
-        self._client: Kuma_Kuma = client
+    def __init__(self, bot: Kuma_Kuma) -> None:
+        self._bot: Kuma_Kuma = bot
         self._name: str = os.path.basename(__file__).title()
         self._logger = logging.getLogger()
         self._logger.info(f'**SUCCESS** Initializing {self._name} ')
@@ -65,17 +65,17 @@ class Util(commands.Cog):
 
     @property
     def _uptime(self) -> timedelta:
-        return timedelta(seconds=(round(time.time() - self._client._start_time)))
+        return timedelta(seconds=(round(time.time() - self._bot._start_time)))
 
     @commands.Cog.listener('on_message')
     async def on_message_listener(self, message: discord.Message) -> None:
         if isinstance(message.channel, discord.abc.GuildChannel) and message.channel.type is not discord.ChannelType.news and str(message.channel.category).lower() not in ['staff', 'dev channels', 'gaming', 'info']:
             # So if our message is over 1k char length and doesn't use our prefix; Lets push it to a mystbin URL.
-            if len(message.content) > 1000 and not message.content.startswith(self._client._prefix):
+            if len(message.content) > 1000 and not message.content.startswith(self._bot._prefix):
                 await self._auto_on_mystbin(message)
 
     def _self_check(self, message: discord.Message) -> bool:
-        return message.author == self._client.user
+        return message.author == self._bot.user
 
     async def _auto_on_mystbin(self, message: discord.Message) -> None:
         """Converts a `discord.Message` into a Mystbin URL"""
@@ -99,13 +99,13 @@ class Util(commands.Cog):
             paste = await self._mb_client.create_multifile_paste(files=files)
 
             author = discord.utils.escape_markdown(str(message.author))
-            await message.channel.send(f"'Hey {author}, *Kuma Kuma Bear* moved your codeblock(s) to `Mystbin`'\n\n{content}\n\n{paste.url}")
+            await message.channel.send(f"Hey {message.author.mention}, *Kuma Kuma Bear* moved your codeblock(s) to `Mystbin`\n\n{content}\n\n{paste.url}")
             await message.delete()
 
     async def _auto_on_hastebin(self, message: discord.Message) -> None:
         """Converts a `discord.Message` into a Hastebin URL"""
         url = "https://hastebin.com/documents "
-        if message.content.startswith(self._client._prefix):
+        if message.content.startswith(self._bot._prefix):
             message.content = message.content[8:]
         async with aiohttp.ClientSession() as session:
             session_post = await session.post(url=url, data=message.content)
@@ -143,7 +143,7 @@ class Util(commands.Cog):
     async def about(self, ctx: commands.Context):
         """Tells you information about the bot itself."""
         await ctx.defer()
-        information = await self._client.application_info()
+        information = await self._bot.application_info()
         embed = discord.Embed()
         #embed.add_field(name="Latest updates:", value=get_latest_commits(limit=5), inline=False)
 
@@ -155,7 +155,7 @@ class Util(commands.Cog):
         embed.add_field(
             name="Process", value=f"{memory_usage:.2f} MiB\n{cpu_usage:.2f}% CPU")
         embed.add_field(
-            name=f"{self._client.user.name} info:",
+            name=f"{self._bot.user.name} info:",
             value=f"**Uptime:**\n{self._uptime}")
         try:
             embed.add_field(
@@ -190,7 +190,7 @@ class Util(commands.Cog):
         else:
             messages = await channel.purge(limit=amount, check=self._self_check, bulk=False)
 
-        return await channel.send(f'Cleaned up **{len(messages)} {"messages" if len(messages) > 1 else "message"}**. Wow, look at all this space!', delete_after=self._client._message_timeout)
+        return await channel.send(f'Cleaned up **{len(messages)} {"messages" if len(messages) > 1 else "message"}**. Wow, look at all this space!', delete_after=self._bot._message_timeout)
 
     @commands.command(name='charinfo')
     async def charinfo(self, context: commands.Context, *, characters: str):
@@ -219,7 +219,7 @@ class Util(commands.Cog):
     async def ping(self, context: commands.Context):
         """Pong..."""
         self._context = context
-        await context.send(f'Pong `{round(self._client.latency * 1000)}ms`', ephemeral=True, delete_after=self._client._message_timeout)
+        await context.send(f'Pong `{round(self._bot.latency * 1000)}ms`', ephemeral=True, delete_after=self._bot._message_timeout)
 
     @commands.command(name='webhooks')
     async def webhooks(self, context: commands.Context, channel: Union[discord.VoiceChannel, discord.TextChannel, discord.StageChannel, discord.ForumChannel, None]):
@@ -296,12 +296,12 @@ class Util(commands.Cog):
             return await context.send(source_url)
 
         if command == 'help':
-            src = type(self._client.help_command)
+            src = type(self._bot.help_command)
             module = src.__module__
             filename = inspect.getsourcefile(src)
 
         else:
-            obj = self._client.get_command(command.replace('.', ' '))
+            obj = self._bot.get_command(command.replace('.', ' '))
             if obj is None:
                 return await context.send('Could not find command.')
 
@@ -327,5 +327,5 @@ class Util(commands.Cog):
         await context.send(final_url)
 
 
-async def setup(client):
-    await client.add_cog(Util(client))
+async def setup(bot: Kuma_Kuma):
+    await bot.add_cog(Util(bot))

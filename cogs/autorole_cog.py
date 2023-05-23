@@ -24,6 +24,7 @@ from re import Pattern, compile
 from typing import Union
 import os
 import logging
+from attr import field
 
 import discord
 from discord import Embed
@@ -40,8 +41,8 @@ class AutoRole(commands.Cog):
 
     REACTION_ROLES_BUTTON_REGEX: Pattern[str] = compile(r'RR::BUTTON::(?P<ROLE_ID>\d+)')
 
-    def __init__(self, client: Kuma_Kuma) -> None:
-        self._client: Kuma_Kuma = client
+    def __init__(self, bot: Kuma_Kuma) -> None:
+        self._bot: Kuma_Kuma = bot
         self._name: str = os.path.basename(__file__).title()
         self._logger = logging.getLogger()
         self._logger.info(f'**SUCCESS** Initializing {self._name} ')
@@ -50,6 +51,8 @@ class AutoRole(commands.Cog):
     @app_commands.command(name= 'role_embed')
     async def role_embed(self, interaction: discord.Interaction, channel: Union[discord.TextChannel, None], role: discord.Role, field_body: str, emoji: Union[str, None]) -> None:
         """Displays an Embed in a channel that Users can interact with the button to `Add` or `Remove` a role."""
+        print(emoji)
+
 
         embed = Embed(title= f'**{role.name} Role**' , color= role.color, description= f'Click the button below if you\'d like to subscribe to the {role.mention} role for updates!')
         embed.add_field(name= '**What is this for?**', value=  field_body)
@@ -91,5 +94,5 @@ class AutoRole(commands.Cog):
                 return await interaction.response.send_message(f"Failed to assign role: {e.text}", ephemeral=True)
             await interaction.response.send_message(message.format(role.name), ephemeral=True)
 
-async def setup(client):
-    await client.add_cog(AutoRole(client))
+async def setup(bot:Kuma_Kuma):
+    await bot.add_cog(AutoRole(bot))
