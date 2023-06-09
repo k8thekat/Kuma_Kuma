@@ -3,25 +3,31 @@ import os
 import logging
 import importlib.util
 import traceback
+from typing import TYPE_CHECKING
 
 from discord.ext import commands
+
+
+from kuma_kuma import Kuma_Kuma
 
 
 class Handler():
     """This is the Basic Module Loader for AMP to Discord Integration/Interactions"""
 
-    def __init__(self, client: commands.Bot):
-        self._client = client
+    def __init__(self, bot: Kuma_Kuma):
+        self._bot: Kuma_Kuma = bot
         self._cwd = pathlib.Path.cwd()
         self._name = os.path.basename(__file__).title()
         self._logger = logging.getLogger()
+
+        self._loaded_cogs: list[str] = []
 
         self._logger.info(f'**SUCCESS** Initializing {self._name} ')
 
     async def cog_auto_loader(self, reload=False):
         """This will load all Cogs inside of the cogs folder."""
         path = f'cogs'  # This gets us to the folder for the module specific scripts to load via the cog.
-        loaded_cogs = []
+
         # Grab all the cogs inside my `cogs` folder and duplicate the list.
         cog_file_list = pathlib.Path.joinpath(self._cwd, 'cogs').iterdir()
         cur_cog_file_list = list(cog_file_list)
@@ -39,7 +45,7 @@ class Handler():
                 # spec = importlib.util.spec_from_file_location(module_name, script)
                 # class_module = importlib.util.module_from_spec(spec) #type:ignore
                 # spec.loader.exec_module(class_module) #type:ignore
-                    
+
                 # #module_dependencies: list[str] | None = getattr(class_module, f'Dependencies', None)
                 # try:
                 #     module_dependencies: list[str] | None = class_module.Dependencies
@@ -61,24 +67,20 @@ class Handler():
                 cog = f'{path}.{script.name[:-3]}'
 
                 try:
-                    if reload:
-                        await self._client.reload_extension(cog)
-                        # Append to our loaded cogs for dependency check
-                        loaded_cogs.append(script.name.lower())
-                        # Remove the entry from our cog list; so we don't attempt to load it again.
+                    if reload and cog in self._loaded_cogs:
+                        await self._bot.reload_extension(cog)
                         cur_cog_file_list.remove(script)
 
                     else:
-                        await self._client.load_extension(cog)
+                        await self._bot.load_extension(cog)
                         # Append to our loaded cogs for dependency check
-                        loaded_cogs.append(script.name.lower())
+                        self._loaded_cogs.append(cog)
                         # Remove the entry from our cog list; so we don't attempt to load it again.
                         cur_cog_file_list.remove(script)
 
-                    self._logger.info(
-                        f'**FINISHED LOADING** {self._name} -> **{cog}**')
+                    self._logger.info(f'**FINISHED LOADING** {self._name} -> **{cog}**')
 
-                except commands.errors.ExtensionAlreadyLoaded: 
+                except commands.errors.ExtensionAlreadyLoaded:
                     cur_cog_file_list.remove(script)
                     self._logger.error(f'**ERROR** Loading Cog ** - {cog} ExtensionAlreadyLoaded {traceback.format_exc()}')
                     continue

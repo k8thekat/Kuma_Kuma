@@ -41,11 +41,11 @@ import time
 from utils.context import KumaContext
 from db import Kuma_DB
 
+
 class Kuma_Kuma(commands.Bot):
 
     if TYPE_CHECKING:
         user: discord.ClientUser
-
 
     def __init__(self):
         self._logger = logging.getLogger()
@@ -62,11 +62,11 @@ class Kuma_Kuma(commands.Bot):
         self.sessions: set[int] = set()
 
         self._start_time: float = time.time()
-    
+
     async def setup_hook(self) -> None:
         # Modular loading of all cogs.
-        #self._db = Kuma_DB()
-        #self._db_pool: Coroutine[Any, Any, Pool] = self._db._dev_return()
+        # self._db = Kuma_DB()
+        # self._db_pool: Coroutine[Any, Any, Pool] = self._db._dev_return()
         self._handler = loader.Handler(self)
         await self._handler.cog_auto_loader()
 
@@ -94,9 +94,11 @@ class Kuma_Kuma(commands.Bot):
 
     async def get_context(self, origin: Union[discord.Interaction, discord.Message], /, *, cls=KumaContext) -> KumaContext:
         return await super().get_context(origin, cls=cls)
-    
+
 
 Kuma = Kuma_Kuma()
+
+
 @Kuma.hybrid_group(name='kuma')
 async def kuma(context: commands.Context) -> None:
     print()
@@ -106,16 +108,19 @@ async def kuma(context: commands.Context) -> None:
 @commands.is_owner()
 async def reload(context: commands.Context) -> None:
     """Reloads all cogs inside the cogs folder."""
-    #Kuma._logger.info(f'{context.author.name} used {context.command}...')
-    await Kuma._handler.cog_auto_loader(reload=True)
-    await context.send(f'**SUCCESS** Reloading All Cogs ', ephemeral=True, delete_after=Kuma._message_timeout)
+    # Kuma._logger.info(f'{context.author.name} used {context.command}...')
+    try:
+        await Kuma._handler.cog_auto_loader(reload=True)
+        await context.send(f'**SUCCESS** Reloading All Cogs ', ephemeral=True, delete_after=Kuma._message_timeout)
+    except Exception as e:
+        await context.send(content=f"We encountered an **Error** - \n{e}", ephemeral=True, delete_after=Kuma._message_timeout)
 
 
 @kuma.command(name='sync')
 @commands.is_owner()
 async def sync(context: commands.Context, local: bool = True, reset: bool = False):
     """Syncs Kuma Commands to the current guild this command was used in."""
-    #Kuma._logger.info(f'{context.author.name} used {context.command}...')
+    # Kuma._logger.info(f'{context.author.name} used {context.command}...')
     await context.defer()
     # This keeps our DB Guild_ID Current.
 
@@ -136,7 +141,7 @@ async def sync(context: commands.Context, local: bool = True, reset: bool = Fals
 
     if local == True:
         # Local command tree sync
-        Kuma.tree.copy_global_to(guild=context.guild) #type:ignore
+        Kuma.tree.copy_global_to(guild=context.guild)  # type:ignore
         Kuma._logger.info(f'{Kuma.user.name} Commands Sync\'d Locally: {await Kuma.tree.sync(guild=context.guild)}')
         return await context.send(f'Successfully Sync\'d `{Kuma.user.name}s` Commands to {context.guild}...', ephemeral=True, delete_after=Kuma._message_timeout)
 
@@ -156,9 +161,8 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-   load_dotenv()
-   logger.init()
+    load_dotenv()
+    logger.init()
 
-   with contextlib.suppress(KeyboardInterrupt, RuntimeError, asyncio.CancelledError):
-       asyncio.run(main())
-
+    with contextlib.suppress(KeyboardInterrupt, RuntimeError, asyncio.CancelledError):
+        asyncio.run(main())

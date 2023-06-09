@@ -9,5 +9,6 @@ Kuma_Reddit.py.log
 .vscode/*
 
 .env
-tags.sqlite
+*.sqlite
 *db
+
