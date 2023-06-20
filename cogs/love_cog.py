@@ -24,6 +24,7 @@ from __future__ import annotations
 import datetime
 from datetime import timezone
 import enum
+from socket import timeout
 import sqlite3
 import discord
 import os
@@ -31,10 +32,11 @@ import logging
 from dataclasses import dataclass
 from pprint import pprint
 
-from discord import Embed, Interaction, app_commands
+from discord import Member, app_commands
 from discord.app_commands import Choice
 from discord.colour import Colour
-from discord.ext import commands, tasks
+from discord.enums import ButtonStyle
+from discord.ext import commands
 import asqlite
 
 from typing import Any, List, Optional, Union
@@ -90,36 +92,62 @@ class LoverEmbed(discord.Embed):
         timestamp: datetime.datetime | None = None,
         lover: LoverEntry,
         interaction: discord.Interaction,
+        member: discord.Member | discord.User | None = None,
     ):
         self = cls(color=color, title=title, timestamp=timestamp)
-        self.set_thumbnail(url=None if interaction.user.avatar == None else interaction.user.avatar.url)
-        lover_attrs = ["role", "role_switching", "position", "position_switching"]
-        lover_preferences = {}
-        for entry in lover_attrs:
-            lover_preferences[entry] = getattr(lover, entry)
+        if member is None:
+            member = interaction.user
 
-        self.add_field(
-            name="**Preferences**",
-            value=lover.role
-        )
-
+        self.set_thumbnail(url=None if member.avatar == None else member.avatar.url)
         assert interaction.guild
-        partners = await lover.list_partners()
-        if not len(partners):  # or partners is not None:
-            self.add_field(name="**Partners**", value="None")
-        else:
-            members = [interaction.guild.get_member(int(x)) for x in partners]
+
+        # Generates the preferences for the Lover User under a single Embed Field
+        lover_attrs: list[str] = [
+            "role",
+            "position",
+            "position_switching",
+            "role_switching",
+        ]
+        lover_preferences: list = []
+        for entry in lover_attrs:
+            if entry == "role_switching" or entry == "position_switching":
+                lover_preferences.append(
+                    f"- **{entry.title().replace('_', ' ')}**: {bool(getattr(lover, entry))}"
+                )
+            elif entry == "role":
+                lover_preferences.append(
+                    f"- **{entry.title()}**: {lover.get_role.title()}"
+                )
+            elif entry == "position":
+                lover_preferences.append(
+                    f"- **{entry.title()}**: {lover.get_position.title()}"
+                )
+        self.add_field(name="**__Preferences__**", value="\n".join(lover_preferences))
+
+        # Partner Embed Field Generator
+        partner_results: list = await lover.list_partners()
+        if not len(partner_results):  # or partners is not None:
             self.add_field(
-                name="**Partners**",
-                value=[member.display_name for member in members if member is not None],
+                name="**__Partners__**", value="*Currently no Partners*", inline=False
+            )
+        else:
+            members: list[str] = [f"- **{member.display_name}**" for member in (interaction.guild.get_member(int(x)) for x in partner_results) if member]
+
+            self.add_field(
+                name="**__Partners__**",
+                value="\n".join(members),
+                inline=False,
             )
 
-        kinks = await lover.list_kinks()
-        if not len(kinks):  # or kinks is not None:
-            self.add_field(name="**Kinks**", value="None")
+        # Kinks Embed Field Generator
+        kink_results: list = await lover.list_kinks()
+        if not len(kink_results):  # or kinks is not None:
+            self.add_field(name="**__Kinks__**", value="*Currently no Kinks*")
         else:
-            for entry in kinks:
-                self.add_field(name=entry["name"], value=entry["description"])
+            display_kinks: list = [f"- **{entry['name']}**" for entry in kink_results]
+            self.add_field(
+                name="**__Kinks__**", value="\n".join(display_kinks), inline=False
+            )
 
         return self
 
@@ -132,8 +160,9 @@ class PartnerEmbed(discord.Embed):
         color: int | Colour | None = None,
         title: Any | None = None,
         timestamp: datetime.datetime | None = None,
-        partner: discord.Member,
+        partner: discord.Member
     ):
+
         self = cls(color=color, title=title, timestamp=timestamp)
         self.set_thumbnail(url=None if partner.avatar == None else partner.avatar.url)
 
@@ -150,13 +179,74 @@ class PartnerEmbed(discord.Embed):
 
 
 class LoverRoles(enum.Enum):
-    dom = 0
-    sub = 1
+    dominant = 0
+    submissive = 1
 
 
 class LoverPositions(enum.Enum):
     top = 0
     bottom = 1
+
+
+class LoverApproveButton(discord.ui.Button):
+    def __init__(
+        self,
+        *,
+        style: ButtonStyle = ButtonStyle.green,
+        label: str = "Approve",
+        custom_id: str = "approve_button"
+    ):
+        self.view: LoverPartnerApproval
+        super().__init__(style=style, label=label, custom_id=custom_id)
+
+    async def callback(self, interaction: discord.Interaction):
+        # return await super().callback(interaction)
+        await self.view.orig_msg.edit(content=f"You have approved **{self.view.sender.display_name}** to be your partner.", view=None)
+        await self.view.sender.send(content=f"**{self.view.maybe_partner.display_name}** has __Approved__ your request to be their partner.")
+        self.view.res = True
+        return self.view.res
+
+
+class LoverDenyButton(discord.ui.Button):
+    def __init__(
+        self,
+        *,
+        style: ButtonStyle = ButtonStyle.red,
+        label: str = "Deny",
+        custom_id: str = "deny_button"
+    ):
+        self.view: LoverPartnerApproval
+        super().__init__(style=style, label=label, custom_id=custom_id)
+
+    async def callback(self, interaction: discord.Interaction):
+        # return await super().callback(interaction)
+        await self.view.orig_msg.edit(content=f"You have denied **{self.view.sender.display_name}** to be your partner.", view=None)
+        await self.view.sender.send(content=f"**{self.view.maybe_partner.display_name}** has __Denied__ your request to be their partner.")
+        return self.view.res
+
+# user uses /love partner add ->
+# prompt via DM's to potential partner ->
+# potential partner can click approve or deny buttons.
+# reply to user submitting command (Possibly via DMs):
+
+
+class LoverPartnerApproval(discord.ui.View):
+    @classmethod
+    async def request(
+        cls,
+        *,
+        sender: discord.Member | discord.User,
+        maybe_partner: discord.Member | discord.User,
+    ):
+        self = cls(timeout=None)
+        cls.sender: Member | discord.User = sender
+        cls.maybe_partner: Member | discord.User = maybe_partner
+        self.add_item(LoverApproveButton(custom_id=f"approve_button.{maybe_partner.id}"))
+        self.add_item(LoverDenyButton(custom_id=f"deny_button.{maybe_partner.id}"))
+        cls.res: bool = False
+        cls.orig_msg = await maybe_partner.send(
+            content=f"You have been requested to be a partner of {sender.mention}.",
+            view=self)
 
 
 @dataclass(slots=True)
@@ -172,13 +262,13 @@ class LoverEntry:
 
     @property
     def get_role(self) -> str:
-        """ Possible options see `LoverRoles` """
-        pos_roles = ["dom", "sub"]
+        """Possible options see `LoverRoles`"""
+        pos_roles = ["dominant", "submissive"]
         return pos_roles[self.role]
 
     @property
     def get_position(self) -> str:
-        """ Possible options see `LoverPositions`"""
+        """Possible options see `LoverPositions`"""
         pos_position = ["top", "bottom"]
         return pos_position[self.position]
 
@@ -420,10 +510,11 @@ class Love(commands.Cog):
     )
 
     love_user = app_commands.Group(
-        name="user", description="User profile commands",
+        name="user",
+        description="User profile commands",
         parent=love_language,
         nsfw=True,
-        guild_only=True
+        guild_only=True,
     )
 
     love_partner = app_commands.Group(
@@ -431,7 +522,7 @@ class Love(commands.Cog):
         description="Partner related commands.",
         parent=love_language,
         nsfw=True,
-        guild_only=True
+        guild_only=True,
     )
 
     love_kinks = app_commands.Group(
@@ -439,7 +530,7 @@ class Love(commands.Cog):
         description="Kink related commands.",
         parent=love_language,
         nsfw=True,
-        guild_only=True
+        guild_only=True,
     )
 
     def __init__(self, bot: Kuma_Kuma) -> None:
@@ -551,32 +642,28 @@ class Love(commands.Cog):
             )
 
             await interaction.response.send_message(
-                content=f"Added *{interaction.user.display_name}*",
-                ephemeral=True
+                content=f"Added *{interaction.user.display_name}*", ephemeral=True
             )
         else:
             await interaction.response.send_message(
                 content=f"You are already a *Lover* user, get out there!",
-                ephemeral=True
+                ephemeral=True,
             )
 
     @love_user.command(name="delete", description="Remove your Lover profile.")
-    async def love_user_delete(
-        self,
-        interaction: discord.Interaction
-    ):
+    async def love_user_delete(self, interaction: discord.Interaction):
         # if action.value == "delete":
         lover = await LoverEntry.get_or_none(discord_id=interaction.user.id)
         if lover is not None:
             await lover.delete_lover()
             await interaction.response.send_message(
                 content=f"We have removed {interaction.user.display_name} from the database, sad to see you go~",
-                ephemeral=True
+                ephemeral=True,
             )
         else:
             await interaction.response.send_message(
                 content=f"I was unable to find a Lover member by the name of `{interaction.user.display_name}`",
-                ephemeral=True
+                ephemeral=True,
             )
 
     @love_user.command(name="update", description="Update your Lover profile.")
@@ -587,12 +674,12 @@ class Love(commands.Cog):
         role: LoverRoles | None = None,
         role_switching: bool | None = None,
         position: LoverPositions | None = None,
-        position_switching: bool | None = None
+        position_switching: bool | None = None,
     ):
         func_args = locals()
         lover = await LoverEntry.get_or_none(discord_id=interaction.user.id)
 
-    #    if action.value == "update":
+        #    if action.value == "update":
         if lover is not None:
             # We only want to update vars that are not None
             func_args.pop("self")
@@ -604,91 +691,137 @@ class Love(commands.Cog):
                     results[entry] = func_args[entry]
             await lover.update_lover(args=results)
             await interaction.response.send_message(
-                content=f"We updated your Lover profile!",
-                ephemeral=True
+                content=f"We updated your Lover profile!", ephemeral=True
             )
 
-    # TODO! -- Add Lover info command..
     @love_user.command(name="info", description="Shows your Lover profile information.")
+    @app_commands.autocomplete(lover=partner_autocomplete)
     async def love_user_info(
-        self,
-        interaction: discord.Interaction
+        self, interaction: discord.Interaction, lover: str | None = None
     ):
-        lover = await LoverEntry.get_or_none(discord_id=interaction.user.id)
+        assert interaction.guild
+        # This is for Partner lookup..
         if lover is not None:
-            await interaction.response.send_message(
-                embed=await LoverEmbed.create(
-                    color=interaction.user.color,
-                    title=f"**{interaction.user.display_name}**",
-                    timestamp=discord.utils.utcnow(),
-                    lover=lover,
-                    interaction=interaction),
-                ephemeral=True
-            )
-
-    @love_partner.command(name="add", description="Add a partner")
-    async def love_add_partner(
-        self, interaction: discord.Interaction,
-        partner: discord.Member,
-        role_switching: bool | None = None,
-        position_switching: bool | None = None
-    ) -> None:
-        if partner.id == interaction.user.id:
-            return await interaction.response.send_message(
-                content=f"You cannot add yourself as a partner... or can you?",
-                ephemeral=True,
-            )
-
-        lover: LoverEntry | None = await LoverEntry.get_or_none(
-            discord_id=interaction.user.id
-        )
-        if lover is not None:
-            # If the lover did not set the role switching or position switching; use theirs as the default.
-            if role_switching == None:
-                role_switching = lover.role_switching
-            if position_switching == None:
-                position_switching = lover.position_switching
-
-            result: LoverEntry | bool | None = await lover.add_partner(
-                partner_id=partner.id, role_switching=role_switching, position_switching=position_switching
-            )
-            if result == None:
-                await interaction.response.send_message(
-                    content=f"Looks like **{partner.display_name}** is already your partner, get out there and have fun!",
-                    ephemeral=True
-                )
-            elif result == False:
-                await interaction.response.send_message(
-                    content=f"**{partner.display_name}** is not a Lover, ask them to add themselves first!",
-                    ephemeral=True
+            if len(lover) == 100:
+                return await interaction.response.send_message(
+                    content="You don't have any partners! Why did you select that option?",
+                    ephemeral=True,
                 )
 
-            # Add the lover to the partner
-            lover_partner = await LoverEntry.get_or_none(discord_id=partner.id)
-            if lover_partner is not None:
-                await lover_partner.add_partner(
-                    partner_id=interaction.user.id,
-                    role_switching=lover_partner.role_switching,
-                    position_switching=lover_partner.position_switching
+            if not lover.isdigit():
+                return await interaction.response.send_message(
+                    content="You must choose from the options prompted to you.",
+                    ephemeral=True,
                 )
 
-            if type(lover_partner) == LoverEntry:
-                await interaction.response.send_message(
+            res: LoverEntry | None = await LoverEntry.get_or_none(discord_id=int(lover))
+            member: discord.Member | None = interaction.guild.get_member(int(lover))
+            if res and member:
+                return await interaction.response.send_message(
                     embed=await LoverEmbed.create(
-                        color=partner.color,
-                        title=partner.display_name,
+                        color=member.color,
+                        title=f"**{member.display_name}**",
                         timestamp=discord.utils.utcnow(),
-                        lover=lover_partner,
+                        lover=res,
+                        interaction=interaction,
+                        member=member,
+                    ),
+                    ephemeral=True,
+                )
+
+        # This is for self lookup...
+        if lover is None:
+            res = await LoverEntry.get_or_none(discord_id=interaction.user.id)
+            if res is not None:
+                return await interaction.response.send_message(
+                    embed=await LoverEmbed.create(
+                        color=interaction.user.color,
+                        title=f"**{interaction.user.display_name}**",
+                        timestamp=discord.utils.utcnow(),
+                        lover=res,
                         interaction=interaction,
                     ),
                     ephemeral=True,
                 )
 
-        else:
+            else:
+                return await interaction.response.send_message(
+                    content=f"**{interaction.user.display_name}** is not a Lover, ask them to add themselves first!",
+                    ephemeral=True,
+                )
+
+    # TODO! -- Add verification via DM to possible partner (prompt "Approve" or "Deny" buttons)
+    @love_partner.command(name="add", description="Add a partner")
+    async def love_add_partner(
+        self,
+        interaction: discord.Interaction,
+        partner: discord.Member,
+        role_switching: bool | None = None,
+        position_switching: bool | None = None,
+    ) -> None:
+        if partner.id == interaction.user.id:
+            return await interaction.response.send_message(
+                content=f"You cannot add yourself as a partner... or can you?",  # cloning intensifies
+                ephemeral=True,)
+
+        lover: LoverEntry | None = await LoverEntry.get_or_none(discord_id=interaction.user.id)
+
+        if lover is not None:
+            # TODO Add partner approval logic here.
+            results = await LoverPartnerApproval.request(sender=interaction.user, maybe_partner=partner)
             await interaction.response.send_message(
-                content=f"It looks like `{interaction.user.display_name}` is not a *lover* user.",
-                ephemeral=True,
-            )
+                content=f"Approval message sent to {partner.mention}",
+                ephemeral=True)
+
+        #     # If the lover did not set the role switching or position switching; use theirs as the default.
+        #     if role_switching == None:
+        #         role_switching = lover.role_switching
+        #     if position_switching == None:
+        #         position_switching = lover.position_switching
+
+        #     result: LoverEntry | bool | None = await lover.add_partner(
+        #         partner_id=partner.id,
+        #         role_switching=role_switching,
+        #         position_switching=position_switching,
+        #     )
+        #     if result == None:
+        #         await interaction.response.send_message(
+        #             content=f"Looks like **{partner.display_name}** is already your partner, get out there and have fun!",
+        #             ephemeral=True,
+        #         )
+        #     elif result == False:
+        #         await interaction.response.send_message(
+        #             content=f"**{partner.display_name}** is not a Lover, ask them to add themselves first!",
+        #             ephemeral=True,
+        #         )
+
+        #     # Add the lover to the partner
+        #     lover_partner = await LoverEntry.get_or_none(discord_id=partner.id)
+        #     if lover_partner is not None:
+        #         await lover_partner.add_partner(
+        #             partner_id=interaction.user.id,
+        #             role_switching=lover_partner.role_switching,
+        #             position_switching=lover_partner.position_switching,
+        #         )
+
+        #     if type(lover_partner) == LoverEntry:
+        #         await interaction.response.send_message(
+        #             embed=await LoverEmbed.create(
+        #                 color=partner.color,
+        #                 title=partner.display_name,
+        #                 timestamp=discord.utils.utcnow(),
+        #                 lover=lover_partner,
+        #                 interaction=interaction,
+        #                 member=partner,
+        #             ),
+        #             ephemeral=True,
+        #         )
+
+        # else:
+        #     await interaction.response.send_message(
+        #         content=f"It looks like `{interaction.user.display_name}` is not a *lover* user.",
+        #         ephemeral=True,
+        #     )
 
     @love_partner.command(name="remove", description="Remove a partner.")
     @app_commands.autocomplete(partner=partner_autocomplete)
@@ -797,6 +930,7 @@ class Love(commands.Cog):
                     color=interaction.user.color,
                     timestamp=discord.utils.utcnow(),
                 )
+
                 kink_embed.set_thumbnail(
                     url=None
                     if interaction.user.avatar == None
