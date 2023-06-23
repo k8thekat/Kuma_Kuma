@@ -27,17 +27,19 @@ import os
 from threading import current_thread, Thread
 import logger
 from dotenv import load_dotenv
+import time
+import aiohttp
 
-import loader
 
 import discord
 from discord.ext import commands
 from discord import Intents
 from asqlite import Pool
 
+import loader
 import logging
 from typing import Union, TYPE_CHECKING, Any, Coroutine
-import time
+
 from utils.context import KumaContext
 from db import Kuma_DB
 
@@ -67,6 +69,7 @@ class Kuma_Kuma(commands.Bot):
         # Modular loading of all cogs.
         # self._db = Kuma_DB()
         # self._db_pool: Coroutine[Any, Any, Pool] = self._db._dev_return()
+        self.session = aiohttp.ClientSession()
         self._handler = loader.Handler(self)
         await self._handler.cog_auto_loader()
 
@@ -80,6 +83,13 @@ class Kuma_Kuma(commands.Bot):
 
     async def on_command(self, context: commands.Context) -> None:
         self._logger.info(f'{context.author.name} used {context.command}...')
+
+    async def cog_command_error(self, context: KumaContext, error: commands.CommandError):
+        assert context.command
+        if isinstance(error, commands.BadArgument):
+            await context.send(str(error))
+        if isinstance(error, commands.TooManyArguments):
+            await context.send(f'You called the {context.command.name} command with too many arguments.')
 
     async def on_reaction_add(self, reaction: discord.Reaction, user: Union[discord.Member, discord.User]) -> None:
         """Called when a message has a reaction added to it. Similar to `on_message_edit()`, 

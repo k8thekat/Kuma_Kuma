@@ -19,6 +19,7 @@
    02110-1301, USA. 
 
 '''
+from __future__ import annotations
 # Python Libs
 import os
 import logging
@@ -145,7 +146,7 @@ class Util(commands.Cog):
         await ctx.defer()
         information = await self._bot.application_info()
         embed = discord.Embed()
-        #embed.add_field(name="Latest updates:", value=get_latest_commits(limit=5), inline=False)
+        # embed.add_field(name="Latest updates:", value=get_latest_commits(limit=5), inline=False)
 
         embed.set_author(
             name=f"Made by {information.owner}", icon_url=information.owner.display_avatar.url,)

@@ -27,6 +27,7 @@ import enum
 from operator import pos
 from socket import timeout
 import sqlite3
+from threading import local
 import discord
 import os
 import logging
@@ -38,12 +39,13 @@ from discord.app_commands import Choice
 from discord.colour import Colour
 from discord.enums import ButtonStyle
 from discord.ext import commands
-from numpy import delete
 import asqlite
 
-from typing import Any, List, Optional, Union
+from typing import Any, List, NamedTuple, Optional, Union
 
 from kuma_kuma import Kuma_Kuma
+from utils.context import KumaContext
+import utils.timezones
 
 DB_FILENAME = "lovers.sqlite"
 
@@ -65,6 +67,7 @@ CREATE TABLE IF NOT EXISTS partners (
     partner_id INT NOT NULL,
     role_switch INT NOT NULL,
     position_switching INT NOT NULL,
+    s_time INT NOT NULL,
     FOREIGN KEY (lovers_id) references lovers(discord_id),
     FOREIGN KEY (partner_id) references lovers(discord_id)
     PRIMARY KEY(lovers_id, partner_id)
@@ -80,6 +83,13 @@ CREATE TABLE IF NOT EXISTS kinks (
     PRIMARY KEY(lovers_id, name)
 )
 """
+
+TIMEZONE_SETUP_SQL = """
+CREATE TABLE IF NOT EXISTS user_settings (
+    discord_id BIGINT NOT NULL,
+    timezone TEXT NOT NULL,
+    PRIMARY KEY(discord_id)
+)"""
 
 _logger = logging.getLogger()
 
@@ -154,7 +164,9 @@ class LoverEmbed(discord.Embed):
             self.add_field(
                 name="**__Kinks__**", value="\n".join(display_kinks), inline=False
             )
-
+        tz = await lover.get_timezone()
+        if tz is not None:
+            self.add_field(name="**__Timezone__**", value=tz["timezone"], inline=False)
         return self
 
 
@@ -225,11 +237,13 @@ class LoverApproveButton(discord.ui.Button):
             await lover.add_partner(
                 partner_id=partner.discord_id,
                 role_switching=lover.role_switching,
-                position_switching=lover.position_switching)
+                position_switching=lover.position_switching,
+                s_time=datetime.datetime.now(tz=timezone.utc).timestamp())
             await partner.add_partner(
                 partner_id=lover.discord_id,
                 role_switching=partner.role_switching,
-                position_switching=partner.position_switching)
+                position_switching=partner.position_switching,
+                s_time=datetime.datetime.now(tz=timezone.utc).timestamp())
 
         embed: LoverEmbed = await LoverEmbed.create(
             color=self.view.sender.color,
@@ -355,9 +369,15 @@ class LoverEntry:
     async def delete_lover(self) -> int:
         async with asqlite.connect(DB_FILENAME) as db:
             async with db.cursor() as cur:
+                # remove from partner tables
                 await cur.execute(
-                    """DELETE FROM lovers WHERE discord_id = ?""", self.discord_id
+                    """DELETE FROM partners WHERE lovers_id = ?""", self.discord_id
                 )
+                await cur.execute(
+                    """DELETE FROM kinks where lovers_id = ?""", self.discord_id
+                )
+                await cur.execute(
+                    """DELETE FROM lovers WHERE discord_id = ?""", self.discord_id)
                 await db.commit()
 
                 return cur.get_cursor().rowcount
@@ -372,7 +392,7 @@ class LoverEntry:
 
         SQL = ", ".join(SQL)
         VALUES.append(self.discord_id)
-        # print(SQL)
+       # print(SQL)
         # print(VALUES)
         async with asqlite.connect(DB_FILENAME) as db:
             async with db.cursor() as cur:
@@ -386,6 +406,7 @@ class LoverEntry:
                 res = await cur.fetchone()
                 return LoverEntry(**res)
 
+    # TODO Verify s_time values work in DB
     async def add_partner(
         self,
         # partner_name: str,
@@ -394,6 +415,7 @@ class LoverEntry:
         # position: int,
         role_switching: bool,
         position_switching: bool,
+        s_time: float
     ) -> LoverEntry | None | bool:
         """
         Partners TABLE SCHEMA
@@ -402,6 +424,7 @@ class LoverEntry:
             partner_id `INT NOT NULL`
             role_switch `INT NOT NULL`
             position_switching `INT NOT NULL`
+            s_time `INT NOT NULL`
 
 
         RETURNS
@@ -429,11 +452,12 @@ class LoverEntry:
                     # ON CONFLICT(lovers_id, partner_id) DO NOTHING RETURNING *""", lover.discord_id, partner_id)
                     try:
                         await cur.execute(
-                            """INSERT INTO partners(lovers_id, partner_id, role_switch, position_switching) VALUES (?, ?, ?, ?)""",
+                            """INSERT INTO partners(lovers_id, partner_id, role_switch, position_switching, s_time) VALUES (?, ?, ?, ?, ?)""",
                             self.discord_id,
                             partner_id,
                             role_switching,
-                            position_switching
+                            position_switching,
+                            s_time
                             # lover.role_switching,
                             # lover.position_switching,
                         )
@@ -521,6 +545,11 @@ class LoverEntry:
 
                 return cur.get_cursor().rowcount
 
+    # TODO Flesh out this command
+    async def update_partner(self, partner_id: int, position_switching: bool | None = None, role_switching: bool | None = None, s_time: int | None = None):
+        print()
+
+    # TODO Possibly bring this back and make a slash command for it. Unsure..
     # async def update_kink(self, name: str, new_name: str | None = None, new_description: str | None = None) -> int | None:
     #     async with asqlite.connect(DB_FILENAME) as db:
     #         async with db.cursor() as cur:
@@ -548,6 +577,23 @@ class LoverEntry:
                 await cur.execute(""" SELECT * FROM kinks WHERE lovers_id =? and name = ?""", self.discord_id, name)
                 res = await cur.fetchone()
 
+                return res if not None else None
+
+    async def set_timezone(self, tz: str):
+        async with asqlite.connect(DB_FILENAME) as db:
+            async with db.cursor() as cur:
+                await cur.execute(""" INSERT INTO user_settings(discord_id, timezone) VALUES($1, $2) 
+                ON CONFLICT(discord_id) DO UPDATE SET timezone = $2""", self.discord_id, tz)
+                res = await cur.fetchone()
+                await db.commit()
+
+                return res if not None else None
+
+    async def get_timezone(self):
+        async with asqlite.connect(DB_FILENAME) as db:
+            async with db.cursor() as cur:
+                await cur.execute("""SELECT timezone from user_settings WHERE discord_id =?""", self.discord_id)
+                res = await cur.fetchone()
                 return res if not None else None
 
 
@@ -587,10 +633,15 @@ class Love(commands.Cog):
         self._logger.info(f"**SUCCESS** Initializing {self._name} ")
 
     async def cog_load(self) -> None:
+        # Generate our list of "Choices"
+        self._timezones_choices: list[Choice[str]] = await utils.timezones.parse_bcp47_timezones()
+        self._timezone_aliases: dict[str, str] = utils.timezones._timezone_aliases
+
         async with asqlite.connect(DB_FILENAME) as db:
             await db.execute(LOVERS_SETUP_SQL)
             await db.execute(PARTNERS_SETUP_SQL)
             await db.execute(KINKS_SETUP_SQL)
+            await db.execute(TIMEZONE_SETUP_SQL)
 
     # TODO - Add a validation function when using the `lover: str` parameter for looking up information on other *Lovers*.
     # prevent duplicate code... see
@@ -607,6 +658,43 @@ class Love(commands.Cog):
     #             content="You must choose from the options prompted to you.",
     #             ephemeral=True,
     #         )
+
+    def row_todict(
+        self,
+        lover: LoverEntry,
+        row: list[sqlite3.Row] | None,
+    ) -> dict[str, str] | None:
+        """ Converts `list[Row]` into dict \n
+        Any duplicate keys will append `(lover.name)` to the entry["name"].\n
+        All values will contain `entry["name"]:lover.discord_id` for lookup.\n
+        RETURNS = `{["name"] + f" ({lover.name})" : ["name"] + f":{lover.discord_id}"}`
+        """
+        # We will have two list[Row Factory] ideally; from different Lovers
+        # There will be a chance of duplicate ["name"] values; so we should append and or add possible the Lover.name to the ["name"] value
+        # We need to return the  "name=" ["name"] param of the Choice and "value=" "name" + "lover_id" aka Lovers(discord_id)
+        res: dict[str, str] = {}
+        if row is None:
+            return None
+
+        for values in row:
+            res[values["name"]] = values["name"] + f":{lover.discord_id}"
+        return res
+
+    def merg_dict(
+        self,
+        dict1: dict[str, str],
+        dict2: dict[str, str],
+        lover: LoverEntry
+    ) -> dict[str, str]:
+
+        for entry in dict2:
+            if entry in dict1:
+                name = entry + f" ({lover.name})"
+                dict1[name] = entry + f":{lover.discord_id}"
+            else:
+                dict1[entry] = dict2[entry]
+
+        return dict1
 
     async def partner_autocomplete(
         self, interaction: discord.Interaction, current: str
@@ -666,45 +754,8 @@ class Love(commands.Cog):
                 ]
         return res
 
-    def row_todict(
-        self,
-        lover: LoverEntry,
-        row: list[sqlite3.Row] | None,
-    ) -> dict[str, str] | None:
-        """ Converts `list[Row]` into dict \n
-        Any duplicate keys will append `(lover.name)` to the entry["name"].\n
-        All values will contain `entry["name"]:lover.discord_id` for lookup.\n
-        RETURNS = `{["name"] + f" ({lover.name})" : ["name"] + f":{lover.discord_id}"}`
-        """
-        # We will have two list[Row Factory] ideally; from different Lovers
-        # There will be a chance of duplicate ["name"] values; so we should append and or add possible the Lover.name to the ["name"] value
-        # We need to return the  "name=" ["name"] param of the Choice and "value=" "name" + "lover_id" aka Lovers(discord_id)
-        res: dict[str, str] = {}
-        if row is None:
-            return None
-
-        for values in row:
-            res[values["name"]] = values["name"] + f":{lover.discord_id}"
-        return res
-
-    def merg_dict(
-        self,
-        dict1: dict[str, str],
-        dict2: dict[str, str],
-        lover: LoverEntry
-    ) -> dict[str, str]:
-
-        for entry in dict2:
-            if entry in dict1:
-                name = entry + f" ({lover.name})"
-                dict1[name] = entry + f":{lover.discord_id}"
-            else:
-                dict1[entry] = dict2[entry]
-
-        return dict1
-
+    # TODO Need to possible validate logic.
     async def partners_kinks_autocomplete(self, interaction: discord.Interaction, current: str):
-        # TODO - Add support for when viewing another *Lovers* kinks via a `/love kink lookup command`
         # Would like to possible know the kink name along with the description..
         assert interaction.guild
         kinks: dict[str, str] = {}
@@ -740,6 +791,26 @@ class Love(commands.Cog):
         else:
             return res
 
+    async def timezone_set_autocomplete(
+            self, interaction: discord.Interaction,
+            current: str) -> list[app_commands.Choice[str]]:
+        cur_choices = list(self._timezones_choices)
+        for key, value in self._timezone_aliases.items():
+            if current.lower() in key.lower():
+                cur_choices.append(app_commands.Choice(name=key, value=value))
+
+        return [tz for tz in cur_choices if current.lower() in tz.name.lower()][:25]
+
+        # if not argument:
+        #     return timezones._default_timezones
+        # matches: list[TimeZone] = timezones.find_timezones(argument)
+
+    async def times_autocomplete(self, interaction: discord.Interaction, current: str):
+        print()
+    # @tasks.loop(time=datetime.time(hour=14, tzinfo=timezone.utc))
+    # async def love_message_loop() -> None:
+    #     print()
+
     # @love_language.command(name="reroll")
     # async def love_reroll(self, interaction: discord.Interaction):
     #     print()
@@ -758,7 +829,8 @@ class Love(commands.Cog):
         role: LoverRoles,
         position: LoverPositions,
         role_switching: bool = False,
-            position_switching: bool = False):
+        position_switching: bool = False
+    ):
 
         lover: LoverEntry | None = await LoverEntry.get_or_none(discord_id=interaction.user.id)
         # if action.value == "add":
@@ -798,8 +870,9 @@ class Love(commands.Cog):
                 ephemeral=True,
             )
 
-    # TODO Verify all parameter fields logic works properly
     @love_user.command(name="update", description="Update your Lover profile.")
+    @app_commands.autocomplete(tz=timezone_set_autocomplete)
+    @app_commands.describe(tz="Set your timezone")
     async def love_user_update(
         self,
         interaction: discord.Interaction,
@@ -808,6 +881,7 @@ class Love(commands.Cog):
         role_switching: bool | None = None,
         position: LoverPositions | None = None,
         position_switching: bool | None = None,
+        tz: str | None = None
     ):
         func_args = locals()
         lover = await LoverEntry.get_or_none(discord_id=interaction.user.id)
@@ -819,6 +893,7 @@ class Love(commands.Cog):
             func_args.pop("interaction")
             func_args.pop("role")
             func_args.pop("position")
+            func_args.pop("tz")
             # func_args.pop("lover")
             results: dict = {}
 
@@ -836,9 +911,21 @@ class Love(commands.Cog):
                 if func_args[entry] is not None:
                     results[entry] = func_args[entry]
 
-            await lover.update_lover(args=results)
+            if len(results):
+                await lover.update_lover(args=results)
+
+            if tz is not None:
+                try:
+                    res = await utils.timezones.convert_timezones(tz=tz)
+                except:
+                    return await interaction.response.send_message(
+                        content=f"You provided an improper Timezone; please pick from the provided selection only.",
+                        ephemeral=True
+                    )
+                await lover.set_timezone(tz=tz)
+
             await interaction.response.send_message(
-                content=f"We updated your Lover profile!", ephemeral=True
+                content=f"We updated your *Lover* profile!", ephemeral=True
             )
 
     @love_user.command(name="info", description="Shows your Lover profile information.")
@@ -897,8 +984,32 @@ class Love(commands.Cog):
                     ephemeral=True,
                 )
 
+    @love_user.command(name="timezone", description="Set your timezone for misc. bot interactions.")
+    @app_commands.describe(tz="Set your timezone")
+    @app_commands.autocomplete(tz=timezone_set_autocomplete)
+    async def love_user_timezone(self, interaction: discord.Interaction, tz: str):
+        lover: LoverEntry | None = await LoverEntry.get_or_none(discord_id=interaction.user.id)
+        if lover is not None:
+            # This will error out if someone provides a timezone that does not exist acting as a "hacky" validation.
+            try:
+                res = await utils.timezones.convert_timezones(tz=tz)
+            except:
+                return await interaction.response.send_message(
+                    content=f"You provided an improper Timezone; please pick from the provided selection only.",
+                    ephemeral=True
+                )
+
+            await lover.set_timezone(tz=tz)
+            return await interaction.response.send_message(
+                content=f"You timezone has been set to **{tz}** \n > Current date/time is: **{res.strftime('%x %I:%M %p')}**.",
+                ephemeral=True)
+        if lover is None:
+            return await interaction.response.send_message(
+                content=f"It looks like `{interaction.user.display_name}` is not a *lover* user.",
+                ephemeral=True)
+
     @love_partner.command(name="add", description="Add a partner")
-    async def love_add_partner(
+    async def love_partner_add(
         self,
         interaction: discord.Interaction,
         partner: discord.Member,
@@ -966,7 +1077,7 @@ class Love(commands.Cog):
 
     @love_partner.command(name="remove", description="Remove a partner.")
     @app_commands.autocomplete(partner=partner_autocomplete)
-    async def love_remove_partner(
+    async def love_partner_remove(
         self, interaction: discord.Interaction, partner: str
     ) -> None:
         if len(partner) == 100:
@@ -995,12 +1106,56 @@ class Love(commands.Cog):
             )
         else:
             await interaction.response.send_message(
-                content=f"It looks like `{interaction.user.display_name}` is not a *lover* user.",
+                content=f"It looks like `{interaction.user.display_name}` is not a *Lover* user.",
                 ephemeral=True,
             )
 
+    # TODO - Need to get/use UTC timezone for setting UNIX timestamp value in DB.
+    # TODO - Create a choice list of times from 00:00 - 24:00
+    @love_partner.command(name="update", description="Update your relationship.")
+    @app_commands.autocomplete(partner=partner_autocomplete)
+    async def love_partner_update(
+        self,
+        interaction: discord.Interaction,
+        partner: str,
+        role_switching: bool | None = None,
+        position_switching: bool | None = None,
+        suggestion_time: str | None = None
+    ):
+        func_args: dict[str, Any] = locals()
+        func_args.pop("self")
+        func_args.pop("interaction")
+        func_args.pop("partner")
+        if len(partner) == 100:
+            return await interaction.response.send_message(
+                content="You don't have any partners! Why did you select that option?",
+                ephemeral=True,
+            )
+
+        if not partner.isdigit():
+            return await interaction.response.send_message(
+                content="You must choose from the options prompted to you.",
+                ephemeral=True,
+            )
+        lover: LoverEntry | None = await LoverEntry.get_or_none(discord_id=interaction.user.id)
+        if lover is None:
+            return await interaction.response.send_message(
+                content=f"It appears {interaction.user.display_name} is not a *Lover* user.",
+                ephemeral=True
+            )
+        if lover is not None:
+            lover_partner: LoverEntry | None = await LoverEntry.get_or_none(discord_id=int(partner))
+
+            if role_switching is None:
+                role_switching = lover.role_switching
+            if position_switching is None:
+                position_switching = lover.position_switching
+
+            if lover_partner is not None:
+                res = await lover.update_partner(lover_partner.discord_id, )
+
     @love_partner.command(name="list", description="Lists all your partners")
-    async def love_list_partner(self, interaction: discord.Interaction) -> None:
+    async def love_partner_list(self, interaction: discord.Interaction) -> None:
         lover = await LoverEntry.get_or_none(discord_id=interaction.user.id)
         assert interaction.guild
 
@@ -1173,6 +1328,7 @@ class Love(commands.Cog):
                 ephemeral=True,
             )
 
+    # TODO Need to validate logic and test for errors.
     @love_kinks.command(name="info", description="Look up the description of a Kink.")
     @app_commands.autocomplete(kink=partners_kinks_autocomplete)
     async def love_kink_info(self, interaction: discord.Interaction, kink: str):
@@ -1208,10 +1364,6 @@ class Love(commands.Cog):
                 embed=kink_embed,
                 ephemeral=True
             )
-
-    # @tasks.loop(time=datetime.time(hour=14, tzinfo=timezone.utc))
-    # async def love_message_loop() -> None:
-    #     print()
 
 
 async def setup(bot: Kuma_Kuma):

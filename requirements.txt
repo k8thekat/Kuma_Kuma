@@ -32,14 +32,17 @@ idna==3.3
     # via yarl
 import-expression==1.1.4
     # via -r requirements.in
+lxml
 multidict==6.0.4
     # via
     #   aiohttp
     #   yarl
-psutil==5.9.0
+mystbin-py
+psutil==5.9.5
     # via -r requirements.in
 python-dotenv==1.0.0
     # via -r requirements.in
+python-dateutil
 six==1.16.0
     # via astunparse
 wheel==0.40.0
