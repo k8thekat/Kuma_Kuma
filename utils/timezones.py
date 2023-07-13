@@ -133,40 +133,4 @@ class CLDRDataEntry(NamedTuple):
 
 async def convert_timezones(tz: str) -> datetime.datetime:
     conv_time: datetime.datetime = datetime.datetime.astimezone(discord.utils.utcnow(), tz=pytz.timezone(tz))
-
     return conv_time
-# class TimeZone(NamedTuple):
-#     label: str
-#     key: str
-
-#     @classmethod
-#     async def convert(cls, context: KumaContext, argument: str) -> TimeZone:
-#         # assert isinstance(ctx.cog, Reminder)
-
-#         # Prioritise aliases because they handle short codes slightly better
-#         if argument in _timezone_aliases:
-#             return cls(key=argument, label=_timezone_aliases[argument])
-
-#         if argument in valid_timezones:
-#             return cls(key=argument, label=argument)
-#         else:
-#             raise commands.BadArgument(f'Could not find timezone for {argument!r}')
-#         # timezones: list[TimeZone] = find_timezones(argument)
-
-#         # try:
-#         #     return await context.disambiguate(timezones, lambda t: t[0], ephemeral=True)
-#         # except ValueError:
-#         #     raise commands.BadArgument(f'Could not find timezone for {argument!r}')
-
-#     def to_choice(self) -> app_commands.Choice[str]:
-#         return app_commands.Choice(name=self.label, value=self.key)
-
-
-# def find_timezones(query: str) -> list[TimeZone]:
-#     # A bit hacky, but if '/' is in the query then it's looking for a raw identifier
-#     # otherwise it's looking for a CLDR alias
-#     if '/' in query:
-#         return [TimeZone(key=a, label=a) for a in fuzzy.finder(query, valid_timezones)]
-
-#     keys = fuzzy.finder(query, _timezone_aliases.keys())
-#     return [TimeZone(label=k, key=_timezone_aliases[k]) for k in keys]

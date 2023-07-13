@@ -22,12 +22,10 @@
 from __future__ import annotations
 
 import datetime
-from datetime import timezone
+from datetime import timedelta, timezone
 import enum
-from operator import pos
-from socket import timeout
+from importlib.resources import is_resource
 import sqlite3
-from threading import local
 import discord
 import os
 import logging
@@ -38,10 +36,12 @@ from discord import Member, app_commands
 from discord.app_commands import Choice
 from discord.colour import Colour
 from discord.enums import ButtonStyle
-from discord.ext import commands
+from discord.ext import commands, tasks
+
+import pytz
 import asqlite
 
-from typing import Any, List, NamedTuple, Optional, Union
+from typing import Any, List, NamedTuple, Optional, Self, Union
 
 from kuma_kuma import Kuma_Kuma
 from utils.context import KumaContext
@@ -92,6 +92,63 @@ CREATE TABLE IF NOT EXISTS user_settings (
 )"""
 
 _logger = logging.getLogger()
+
+
+class TimeTable:
+    table: list[str] = []
+
+    ante_post = ["AM", "PM"]
+    hour_values = [str(x) for x in range(1, 13)]
+    min_values = [str(x) for x in range(00, 60, 15)]
+
+    def create_table(self):
+        res = list(self.table)
+        for entry in self.ante_post:
+            for hour in self.hour_values:
+                for min in self.min_values:
+                    if min == "0":
+                        min = "00"
+                    res.append(f"{hour}:{min} {entry}")
+        return res
+
+    async def time_converter(self, time: str, lover: LoverEntry) -> int:
+        # Let's parse our provided time str into int's.
+        res = time.split(":")
+        hour = int(res[0])
+        min = int(res[1][0:-2])  # strip off "AM" or "PM"
+        if res[1][-2:] == "PM":
+            hour += 12
+        # If we land on the hour; turn the "00" back into "0" minutes.
+        if min == "00":
+            min = 0
+        lover_timezone = await lover.get_timezone()
+        # print("UTC Now timestamp -", datetime.datetime.now(tz=pytz.timezone("UTC")))
+        # print("suggestion time -", hour, min)  # type:ignore
+        # print("timezone -", lover_timezone["timezone"])
+        # offset_diff = datetime.datetime.now(tz=pytz.timezone("UTC")) - datetime.datetime.now(tz=pytz.timezone(lover_timezone["timezone"]))
+
+        # We create our datetime object in the users local time zone using the values they want. (eg. 3:30am)
+        today = datetime.date.today()
+        s_time = datetime.time(hour=hour, minute=min)
+        lover_cur_time_inTZ = pytz.timezone(lover_timezone["timezone"]).localize(datetime.datetime.combine(today, s_time))
+
+        # print("lover timezone offset-", lover_cur_time_inTZ.utcoffset())
+        # We create a UTC datetime object at midnight
+        utc_time = datetime.time(hour=0, minute=0)
+        utc_midnight = pytz.timezone('UTC').localize(datetime.datetime.combine(today, utc_time))
+
+        # We then get the difference between the two datetime objects into minutes as an offset from UTC Midnight.
+        time_diff = lover_cur_time_inTZ - utc_midnight
+        time_diff_minutes = time_diff.total_seconds() / 60
+        if time_diff_minutes < 0:
+            # add 24 hours
+            time_diff_minutes += 60 * 24
+            # store the time_diff_minutes in DB.
+            # checking SELECT * where s_time =?  | ? = time_diff_minutes
+
+        time_diff = timedelta(minutes=time_diff_minutes)
+        # print("UTC hour check:", time_diff)
+        return int(time_diff_minutes)
 
 
 class LoverEmbed(discord.Embed):
@@ -178,21 +235,55 @@ class PartnerEmbed(discord.Embed):
         color: int | Colour | None = None,
         title: Any | None = None,
         timestamp: datetime.datetime | None = None,
-        partner: discord.Member
+        partner: discord.Member,
+        lover_id: int
     ):
 
         self = cls(color=color, title=title, timestamp=timestamp)
         self.set_thumbnail(url=None if partner.avatar == None else partner.avatar.url)
 
-        lover: LoverEntry | None = await LoverEntry.get_or_none(discord_id=partner.id)
-        if lover is not None:
-            res = await lover.list_kinks()
-            if res is not None and len(res):
-                kinks = "\n".join([entry["name"] for entry in res])
-                self.add_field(name="Kinks", value=kinks)
-                # for entry in res:
-                # self.add_field(name=entry["name"], value=entry["description"])
+        lover_partner: LoverEntry | None = await LoverEntry.get_or_none(discord_id=partner.id)
 
+        if lover_partner is not None:
+            lover_attrs: list[str] = [
+                "role",
+                "position",
+                "position_switching",
+                "role_switching",
+            ]
+            lover_preferences: list = []
+            for entry in lover_attrs:
+                if entry == "role_switching" or entry == "position_switching":
+                    lover_preferences.append(
+                        f"- **{entry.title().replace('_', ' ')}**: {bool(getattr(lover_partner, entry))}"
+                    )
+                elif entry == "role":
+                    lover_preferences.append(
+                        f"- **{entry.title()}**: {lover_partner.get_role.title()}"
+                    )
+                elif entry == "position":
+                    lover_preferences.append(
+                        f"- **{entry.title()}**: {lover_partner.get_position.title()}"
+                    )
+            self.add_field(name="**__Preferences__**", value="\n".join(lover_preferences), inline=False)
+
+            # Suggestion time field
+            async with asqlite.connect(DB_FILENAME) as db:
+                async with db.cursor() as cur:
+                    await cur.execute("""SELECT s_time FROM partners WHERE lovers_id = ? and partner_id = ?""", lover_id, partner.id)
+                    res = await cur.fetchone()
+                    # TODO use the lovers timezone and convert this value to an H:MM result.
+                    print(res[0])
+
+            # Kinks Embed Field Generator
+            kink_results: list = await lover_partner.list_kinks()
+            if not len(kink_results):  # or kinks is not None:
+                self.add_field(name="**__Kinks__**", value="*Currently no Kinks*", inline=False)
+            else:
+                display_kinks: list = [f"- **{entry['name']}**" for entry in kink_results]
+                self.add_field(
+                    name="**__Kinks__**", value="\n".join(display_kinks), inline=False
+                )
         return self
 
 
@@ -234,16 +325,19 @@ class LoverApproveButton(discord.ui.Button):
 
         # Add each other as partners
         if lover is not None and partner is not None:
+            # Create our time offset
+            cur_time = datetime.datetime.now()
+
             await lover.add_partner(
                 partner_id=partner.discord_id,
                 role_switching=lover.role_switching,
                 position_switching=lover.position_switching,
-                s_time=datetime.datetime.now(tz=timezone.utc).timestamp())
+                s_time=(cur_time.hour * 60 + cur_time.minute))
             await partner.add_partner(
                 partner_id=lover.discord_id,
                 role_switching=partner.role_switching,
                 position_switching=partner.position_switching,
-                s_time=datetime.datetime.now(tz=timezone.utc).timestamp())
+                s_time=(cur_time.hour * 60 + cur_time.minute))
 
         embed: LoverEmbed = await LoverEmbed.create(
             color=self.view.sender.color,
@@ -299,6 +393,15 @@ class LoverPartnerView(discord.ui.View):
         cls.orig_msg = await maybe_partner.send(
             content=f"You have been requested to be a partner of {sender.mention}.",
             view=self)
+
+
+async def get_suggestion_time(value1: int, value2: int):
+    """ Selects all Partner rows where s_time is between `value1` and `value2` *is inclusive*"""
+    async with asqlite.connect(DB_FILENAME) as db:
+        async with db.cursor() as cur:
+            await cur.execute("""SELECT lovers_id, partner_id FROM partners where s_time BETWEEN ? and ?""", value1, value2)
+            res = await cur.fetchall()
+            return res if not None else None
 
 
 @dataclass(slots=True)
@@ -406,7 +509,6 @@ class LoverEntry:
                 res = await cur.fetchone()
                 return LoverEntry(**res)
 
-    # TODO Verify s_time values work in DB
     async def add_partner(
         self,
         # partner_name: str,
@@ -415,15 +517,19 @@ class LoverEntry:
         # position: int,
         role_switching: bool,
         position_switching: bool,
-        s_time: float
+        s_time: int
     ) -> LoverEntry | None | bool:
-        """
-        Partners TABLE SCHEMA
+        """Partners TABLE SCHEMA  
         ----------------------------
+
             lovers_id `INT NOT NULL`
-            partner_id `INT NOT NULL`
+
+            partner_id `INT NOT NULL` 
+
             role_switch `INT NOT NULL`
+
             position_switching `INT NOT NULL`
+
             s_time `INT NOT NULL`
 
 
@@ -545,9 +651,44 @@ class LoverEntry:
 
                 return cur.get_cursor().rowcount
 
-    # TODO Flesh out this command
-    async def update_partner(self, partner_id: int, position_switching: bool | None = None, role_switching: bool | None = None, s_time: int | None = None):
-        print()
+    async def update_partner(self, args: dict[str, int | bool | None]):
+        """ Last value inside args must be  `partner_id`.\n
+            PARTNER table layout
+
+            lovers_id `INT NOT NULL`
+
+            partner_id `INT NOT NULL` 
+
+            role_switch `INT NOT NULL`
+
+            position_switching `INT NOT NULL`
+
+            s_time `INT NOT NULL`
+        """
+        SQL = []
+        VALUES = []
+        partner_id = 0
+        for entry in args:
+            # We don't need to set the partner_id; just need it for the WHERE statement.
+            if entry == "partner_id":
+                partner_id: int | bool | None = args[entry]
+                continue
+            SQL.append(entry + " = ?")
+            VALUES.append(args[entry])
+
+        SQL = ", ".join(SQL)
+        VALUES.append(partner_id)
+        VALUES.append(self.discord_id)
+        # print("SQL", SQL)
+        # print("VALUES", VALUES)
+        async with asqlite.connect(DB_FILENAME) as db:
+            async with db.cursor() as cur:
+                await cur.execute(
+                    f"""UPDATE partners SET {SQL} WHERE partner_id = ? and lovers_id = ? RETURNING *""",
+                    tuple(VALUES),
+                )
+                await db.commit()
+                return
 
     # TODO Possibly bring this back and make a slash command for it. Unsure..
     # async def update_kink(self, name: str, new_name: str | None = None, new_description: str | None = None) -> int | None:
@@ -632,10 +773,13 @@ class Love(commands.Cog):
         self._logger = logging.getLogger()
         self._logger.info(f"**SUCCESS** Initializing {self._name} ")
 
+        self._last_utc_minutes: int = (discord.utils.utcnow().hour * 60 + discord.utils.utcnow().minute)
+
     async def cog_load(self) -> None:
         # Generate our list of "Choices"
         self._timezones_choices: list[Choice[str]] = await utils.timezones.parse_bcp47_timezones()
         self._timezone_aliases: dict[str, str] = utils.timezones._timezone_aliases
+        self._time_table = TimeTable()
 
         async with asqlite.connect(DB_FILENAME) as db:
             await db.execute(LOVERS_SETUP_SQL)
@@ -643,21 +787,11 @@ class Love(commands.Cog):
             await db.execute(KINKS_SETUP_SQL)
             await db.execute(TIMEZONE_SETUP_SQL)
 
-    # TODO - Add a validation function when using the `lover: str` parameter for looking up information on other *Lovers*.
-    # prevent duplicate code... see
-    # This is for lover validation during autocomplete.
-    # if lover is not None:
-    #     if len(lover) == 100:
-    #         return await interaction.response.send_message(
-    #             content="You don't have any partners! Why did you select that option?",
-    #             ephemeral=True,
-    #         )
+        # await self.love_message_loop.start()
 
-    #     if not lover.isdigit():
-    #         return await interaction.response.send_message(
-    #             content="You must choose from the options prompted to you.",
-    #             ephemeral=True,
-    #         )
+    async def cog_unload(self) -> None:
+        if self.love_message_loop.is_running() is True:
+            self.love_message_loop.cancel()
 
     def row_todict(
         self,
@@ -695,6 +829,27 @@ class Love(commands.Cog):
                 dict1[entry] = dict2[entry]
 
         return dict1
+
+    async def lover_handler(self, interaction: discord.Interaction, lover_id: int | str):
+        if isinstance(lover_id, str):
+            if len(lover_id) == 100:
+                return await interaction.response.send_message(
+                    content="You don't have any partners! Why did you select that option?",
+                    ephemeral=True,
+                )
+
+            if not lover_id.isdigit():
+                return await interaction.response.send_message(
+                    content="You must choose from the options prompted to you.",
+                    ephemeral=True,
+                )
+        lover: LoverEntry | None = await LoverEntry.get_or_none(discord_id=int(lover_id))
+        if lover is None:
+            return await interaction.response.send_message(
+                content=f"It appears {interaction.user.display_name} is not a *Lover* user.",
+                ephemeral=True
+            )
+        return lover
 
     async def partner_autocomplete(
         self, interaction: discord.Interaction, current: str
@@ -806,17 +961,52 @@ class Love(commands.Cog):
         # matches: list[TimeZone] = timezones.find_timezones(argument)
 
     async def times_autocomplete(self, interaction: discord.Interaction, current: str):
-        print()
-    # @tasks.loop(time=datetime.time(hour=14, tzinfo=timezone.utc))
-    # async def love_message_loop() -> None:
-    #     print()
+        choice_list = [app_commands.Choice(name=x, value=x) for x in self._time_table.create_table()]
+        return [time for time in choice_list if current.lower() in time.name.lower()][:25]
+
+    # TODO - Figure out why this loop is blocking inside of `cog_load` and test DB lookup/results
+    @tasks.loop(seconds=60)
+    async def love_message_loop(self) -> None:
+        # The goal of this loop is to look at all partner's suggested time (aka s_time) and use the minute value stored in the database
+        # as a UTC offset from midnight against the current UTC time as for when to fire.
+        cur_utc_minutes: int = (discord.utils.utcnow().hour * 60 + discord.utils.utcnow().minute)
+        # res = await get_suggestion_time(value1=self.last_utc_minutes + 1, value2=cur_utc_minutes)
+        res = await get_suggestion_time(value1=0, value2=9999)  # spoof test
+        self.last_utc_minutes = cur_utc_minutes
+        if res is not None:
+            for partners in res:
+                print(partners["partner_id"])
+                print(partners["lovers_id"])
+        print("finished loop")
+
+    # @love_message_loop.before_loop
+    # async def before_message_loop(self) -> None:
+    #     await self._bot.wait_until_ready()
+
+    # @tasks.loop(seconds=60)
+    # async def love_dev_loop(self):
+    #     print("Dev loop fired")
+    #     time_format = '%x %I:%M %p'
+    #     # My LoverEntry profile
+    #     lover = await LoverEntry.get_or_none(discord_id=144462063920611328)
+    #     assert lover
+    #     time_test = await self._time_table.time_converter(time="6:56PM", lover=lover)
+
+    #     today = datetime.date.today()
+    #     utc_time = datetime.time(hour=0, minute=0)
+    #     utc_midnight = pytz.timezone('UTC').localize(datetime.datetime.combine(today, utc_time))
+
+    #     print("minutes", time_test)
+    #     s_time = utc_midnight + timedelta(minutes=time_test)
+    #     var1 = datetime.datetime.now(tz=pytz.timezone("UTC"))
+    #     var2 = s_time
+    #     print("UTC Now == TimeStamp", datetime.datetime.now(tz=pytz.timezone("UTC")).strftime(time_format), s_time.strftime(time_format))
+    #     if var1 == var2 or var1 > var2:
+    #         print("success")
+    #     return
 
     # @love_language.command(name="reroll")
     # async def love_reroll(self, interaction: discord.Interaction):
-    #     print()
-
-    # @love_language.command(name="interval", description="Time values are in `UTC` only")
-    # async def love_message_interval(self, interaction: discord.Interaction) -> None:
     #     print()
 
     @love_user.command(name="add", description="Create your Lover profile.")
@@ -856,7 +1046,6 @@ class Love(commands.Cog):
     # TODO Verify Operation
     @love_user.command(name="delete", description="Remove your Lover profile.")
     async def love_user_delete(self, interaction: discord.Interaction):
-        # if action.value == "delete":
         lover: LoverEntry | None = await LoverEntry.get_or_none(discord_id=interaction.user.id)
         if lover is not None:
             await lover.delete_lover()
@@ -928,7 +1117,7 @@ class Love(commands.Cog):
                 content=f"We updated your *Lover* profile!", ephemeral=True
             )
 
-    @love_user.command(name="info", description="Shows your Lover profile information.")
+    @love_user.command(name="info", description="Shows a Lovers profile information.")
     @app_commands.autocomplete(lover=partner_autocomplete)
     async def love_user_info(
         self, interaction: discord.Interaction, lover: str | None = None
@@ -1110,9 +1299,8 @@ class Love(commands.Cog):
                 ephemeral=True,
             )
 
-    # TODO - Need to get/use UTC timezone for setting UNIX timestamp value in DB.
-    # TODO - Create a choice list of times from 00:00 - 24:00
-    @love_partner.command(name="update", description="Update your relationship.")
+    @love_partner.command(name="update", description="Update your relationship with a partner.")
+    @app_commands.autocomplete(suggestion_time=times_autocomplete)
     @app_commands.autocomplete(partner=partner_autocomplete)
     async def love_partner_update(
         self,
@@ -1122,37 +1310,40 @@ class Love(commands.Cog):
         position_switching: bool | None = None,
         suggestion_time: str | None = None
     ):
+
         func_args: dict[str, Any] = locals()
         func_args.pop("self")
         func_args.pop("interaction")
         func_args.pop("partner")
-        if len(partner) == 100:
-            return await interaction.response.send_message(
-                content="You don't have any partners! Why did you select that option?",
-                ephemeral=True,
-            )
+        func_args.pop("suggestion_time")
 
-        if not partner.isdigit():
-            return await interaction.response.send_message(
-                content="You must choose from the options prompted to you.",
-                ephemeral=True,
-            )
-        lover: LoverEntry | None = await LoverEntry.get_or_none(discord_id=interaction.user.id)
-        if lover is None:
-            return await interaction.response.send_message(
-                content=f"It appears {interaction.user.display_name} is not a *Lover* user.",
-                ephemeral=True
-            )
+        s_time: float | None = None
+        results: dict = {}
+
+        for entry in func_args:
+            if func_args[entry] is not None:
+                results[entry] = func_args[entry]
+
+        lover: LoverEntry | None = await self.lover_handler(interaction=interaction, lover_id=interaction.user.id)
+
         if lover is not None:
-            lover_partner: LoverEntry | None = await LoverEntry.get_or_none(discord_id=int(partner))
-
+            if suggestion_time is not None:
+                s_time = await self._time_table.time_converter(time=suggestion_time, lover=lover)
+                results["s_time"] = s_time
             if role_switching is None:
                 role_switching = lover.role_switching
             if position_switching is None:
                 position_switching = lover.position_switching
-
-            if lover_partner is not None:
-                res = await lover.update_partner(lover_partner.discord_id, )
+           # print("results", results)
+            if len(results):
+                # add our partners discord ID as our last value. We add the discord_id inside `update_partner`
+                results["partner_id"] = int(partner)
+                await lover.update_partner(args=results)
+                pprint(results)
+                # TODO Format reply displaying changed values as an embed?
+                # for key, value in results:
+                # example: {'partner_id': 479429344213860372, 's_time': 1680}
+                await interaction.response.send_message(content=f"Updated user placeholder..")
 
     @love_partner.command(name="list", description="Lists all your partners")
     async def love_partner_list(self, interaction: discord.Interaction) -> None:
@@ -1203,13 +1394,12 @@ class Love(commands.Cog):
                     continue
 
                 if partner is not None and lover_partner is not None:
-                    partner_embed = await LoverEmbed.create(
+                    partner_embed: PartnerEmbed = await PartnerEmbed.create(
                         color=partner.color,
                         title=partner.display_name,
                         timestamp=discord.utils.utcnow(),
-                        lover=lover_partner,
-                        interaction=interaction,
-                        member=partner,
+                        lover_id=interaction.user.id,
+                        partner=partner
                     )
                     embeds.append(partner_embed)
 
@@ -1342,7 +1532,7 @@ class Love(commands.Cog):
         lover: LoverEntry | None = await LoverEntry.get_or_none(discord_id=kink_owner_id)
         if lover is None:
             return interaction.response.send_message(
-                content=f"I was unable to find the owner of that kink..",
+                content=f"I was unable to find the owner of that kink..they appear to no longer be a *Lover*",
                 ephemeral=True
             )
         member = interaction.guild.get_member(kink_owner_id)
