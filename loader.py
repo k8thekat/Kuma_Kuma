@@ -32,16 +32,13 @@ class Handler():
         """This will load all Cogs inside of the cogs folder."""
         # path = f'cogs'  # This gets us to the folder for the module specific scripts to load via the cog.
         path = "cogs"
-        print(self._cog_path)
         # Grab all the cogs inside my `cogs` folder and duplicate the list.
         cog_file_list = pathlib.Path.joinpath(self._cog_path, "cogs").iterdir()
         cur_cog_file_list = list(cog_file_list)
 
-        print(len(cur_cog_file_list))
         # This while loop will force it to load EVERY cog it finds until the list is empty.
         while len(cur_cog_file_list) > 0:
             for script in cur_cog_file_list:
-                print(script.name)
                 # Ignore Pycache or similar files.
                 # Lets Ignore our Custom Permisisons Cog. We will load it on-demand.
                 if script.name.startswith('__') or not script.name.endswith('.py'):
