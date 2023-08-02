@@ -1,7 +1,8 @@
+from cgi import test
 import pathlib
 import os
 import logging
-import importlib.util
+import sys
 import traceback
 from typing import TYPE_CHECKING
 
@@ -16,9 +17,12 @@ class Handler():
 
     def __init__(self, bot: Kuma_Kuma):
         self._bot: Kuma_Kuma = bot
+        # self._test_path = os.chdir("/home/commandblock/repos/dpy_cogs/")
         self._cwd = pathlib.Path.cwd()
+        self._cog_path = pathlib.Path.joinpath(pathlib.Path(__file__).parents[1], "repos/dpy_cogs/")
         self._name = os.path.basename(__file__).title()
         self._logger = logging.getLogger()
+        sys.path.append(self._cog_path.as_posix())
 
         self._loaded_cogs: list[str] = []
 
@@ -26,15 +30,18 @@ class Handler():
 
     async def cog_auto_loader(self, reload=False):
         """This will load all Cogs inside of the cogs folder."""
-        path = f'cogs'  # This gets us to the folder for the module specific scripts to load via the cog.
-
+        # path = f'cogs'  # This gets us to the folder for the module specific scripts to load via the cog.
+        path = "cogs"
+        print(self._cog_path)
         # Grab all the cogs inside my `cogs` folder and duplicate the list.
-        cog_file_list = pathlib.Path.joinpath(self._cwd, 'cogs').iterdir()
+        cog_file_list = pathlib.Path.joinpath(self._cog_path, "cogs").iterdir()
         cur_cog_file_list = list(cog_file_list)
 
+        print(len(cur_cog_file_list))
         # This while loop will force it to load EVERY cog it finds until the list is empty.
         while len(cur_cog_file_list) > 0:
             for script in cur_cog_file_list:
+                print(script.name)
                 # Ignore Pycache or similar files.
                 # Lets Ignore our Custom Permisisons Cog. We will load it on-demand.
                 if script.name.startswith('__') or not script.name.endswith('.py'):
@@ -65,7 +72,6 @@ class Handler():
                 #         continue
 
                 cog = f'{path}.{script.name[:-3]}'
-
                 try:
                     if reload and cog in self._loaded_cogs:
                         await self._bot.reload_extension(cog)

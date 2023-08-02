@@ -71,6 +71,7 @@ class Kuma_Kuma(commands.Bot):
         # self._db_pool: Coroutine[Any, Any, Pool] = self._db._dev_return()
         self.session = aiohttp.ClientSession()
         self._handler = loader.Handler(self)
+        # await self.load_extension("util_cog.py", package="..repose.dpy_cogs.cogs")
         await self._handler.cog_auto_loader()
 
     async def on_ready(self) -> None:

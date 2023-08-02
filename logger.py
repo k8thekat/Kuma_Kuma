@@ -28,13 +28,14 @@ import pathlib
 
 def init():
     logginglevel = logging.INFO
+    path = pathlib.Path(__file__).parent.joinpath('logs')
 
-    dircheck = pathlib.Path.exists(pathlib.Path.cwd().joinpath('logs'))
+    dircheck = pathlib.Path.exists(path)
     if dircheck != True:
         print('Making Log Directory...')
-        pathlib.Path.mkdir(pathlib.Path.cwd().joinpath('logs'))
+        pathlib.Path.mkdir(path)
 
     logging.basicConfig(level=logginglevel, format='%(asctime)s [%(threadName)s] [%(levelname)s]  %(message)s',
                         datefmt='%m/%d/%Y %I:%M:%S %p',
                         handlers=[logging.StreamHandler(sys.stdout),
-                                  TimedRotatingFileHandler(pathlib.Path.as_posix(pathlib.Path.cwd().joinpath('logs')) + '/log', 'midnight', atTime=datetime.datetime.min.time(), backupCount=4, encoding='utf-8', utc=True)])
+                                  TimedRotatingFileHandler(pathlib.Path.as_posix(path) + '/log', 'midnight', atTime=datetime.datetime.min.time(), backupCount=4, encoding='utf-8', utc=True)])
