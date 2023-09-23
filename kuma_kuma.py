@@ -23,6 +23,7 @@
 '''
 import asyncio
 import contextlib
+from email import message
 import os
 from threading import current_thread, Thread
 import logger
@@ -33,15 +34,19 @@ import aiohttp
 
 import discord
 from discord.ext import commands
-from discord import Intents
-from asqlite import Pool
+from discord import Intents, Message
 
 import loader
 import logging
-from typing import Union, TYPE_CHECKING, Any, Coroutine
+from typing import Union, TYPE_CHECKING, Any
 
 from utils.context import KumaContext
-from db import Kuma_DB
+
+
+async def _get_prefix(bot: "Kuma_Kuma", message: Message) -> str:
+    # TODO - Have a DB store a prefix per server.
+    prefix = ""
+    return prefix
 
 
 class Kuma_Kuma(commands.Bot):
@@ -54,22 +59,20 @@ class Kuma_Kuma(commands.Bot):
         intents: Intents = discord.Intents.default()
         intents.members = True
         intents.message_content = True
+        _app_id = 1053576011935129640
         self._prefix = '?'
         owner_ids: list[int] = [144462063920611328]
         super().__init__(intents=intents, command_prefix=self._prefix, strip_after_prefix=True)
         self._message_timeout = 120
 
         self._context = commands.Context
-        # This is for REPL Sessions
-        self.sessions: set[int] = set()
-
         self._start_time: float = time.time()
 
     async def setup_hook(self) -> None:
         # Modular loading of all cogs.
         # self._db = Kuma_DB()
         # self._db_pool: Coroutine[Any, Any, Pool] = self._db._dev_return()
-        self.session = aiohttp.ClientSession()
+        # self.session = aiohttp.ClientSession()
         self._handler = loader.Handler(self)
         # await self.load_extension("util_cog.py", package="..repose.dpy_cogs.cogs")
         await self._handler.cog_auto_loader()
@@ -85,12 +88,21 @@ class Kuma_Kuma(commands.Bot):
     async def on_command(self, context: commands.Context) -> None:
         self._logger.info(f'{context.author.name} used {context.command}...')
 
-    async def cog_command_error(self, context: KumaContext, error: commands.CommandError):
-        assert context.command
-        if isinstance(error, commands.BadArgument):
-            await context.send(str(error))
-        if isinstance(error, commands.TooManyArguments):
-            await context.send(f'You called the {context.command.name} command with too many arguments.')
+    async def on_command_error(self, context: KumaContext, error: commands.CommandError):
+        # assert context.command
+
+        if context.command is not None:
+            if isinstance(error, commands.TooManyArguments):
+                await context.send(content=f'You called the {context.command.name} command with too many arguments.')
+            elif isinstance(error, commands.MissingRequiredArgument):
+                await context.send(content=f'You called {context.command.name} command without the required arguments')
+        else:
+            await context.send(content=str(error))
+
+    async def on_command_completion(self, context: commands.Context):
+        if context.message.content.startswith(self._prefix):
+            if context.message.channel.permissions_for(context.me).manage_messages:  # type: ignore
+                await context.message.delete()
 
     async def on_reaction_add(self, reaction: discord.Reaction, user: Union[discord.Member, discord.User]) -> None:
         """Called when a message has a reaction added to it. Similar to `on_message_edit()`, 
