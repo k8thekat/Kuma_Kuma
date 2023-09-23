@@ -19,7 +19,7 @@ class Handler():
         self._bot: Kuma_Kuma = bot
         # self._test_path = os.chdir("/home/commandblock/repos/dpy_cogs/")
         self._cwd = pathlib.Path.cwd()
-        self._cog_path = pathlib.Path.joinpath(pathlib.Path(__file__).parents[1], "repos/dpy_cogs/")
+        self._cog_path = pathlib.Path.joinpath(pathlib.Path(__file__).parents[1], "dpy_cogs/")
         self._name = os.path.basename(__file__).title()
         self._logger = logging.getLogger()
         sys.path.append(self._cog_path.as_posix())
