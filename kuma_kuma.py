@@ -23,14 +23,16 @@
 '''
 import asyncio
 import contextlib
-from email import message
 import os
 from threading import current_thread, Thread
+
+
 import logger
 from dotenv import load_dotenv
 import time
-import aiohttp
 
+import utils.asqlite as asqlite
+from sqlite3 import Row
 
 import discord
 from discord.ext import commands
@@ -39,14 +41,36 @@ from discord import Intents, Message
 import loader
 import logging
 from typing import Union, TYPE_CHECKING, Any
+from pathlib import Path
 
 from utils.context import KumaContext
 
+script_loc: Path = Path(__file__).parent
+DB_FILENAME = "kuma_kuma.sqlite"
+DB_PATH: str = script_loc.joinpath(DB_FILENAME).as_posix()
 
-async def _get_prefix(bot: "Kuma_Kuma", message: Message) -> str:
-    # TODO - Have a DB store a prefix per server.
-    prefix = ""
-    return prefix
+PREFIX_SETUP_SQL = """
+CREATE TABLE IF NOT EXISTS prefix (
+    id INTEGER PRIMARY KEY NOT NULL,
+    serverid INTEGER NOT NULL,
+    prefix TEXT
+)"""
+
+
+async def _get_prefix(bot: "Kuma_Kuma", message: Message):
+    prefixes = [bot._prefix]
+    if message.guild is not None:
+        _guild: int = message.guild.id
+
+        async with asqlite.connect(DB_FILENAME) as db:
+            async with db.cursor() as cur:
+                await cur.execute("""SELECT prefix FROM prefix WHERE serverid = ?""", _guild)
+                res: list[Row] = await cur. fetchall()
+                if res is not None and len(res) >= 1:
+                    prefixes: list[str] = [entry["prefix"] for entry in res]
+
+    wmo_func = commands.when_mentioned_or(*prefixes)
+    return wmo_func(bot, message)
 
 
 class Kuma_Kuma(commands.Bot):
@@ -62,19 +86,17 @@ class Kuma_Kuma(commands.Bot):
         _app_id = 1053576011935129640
         self._prefix = '?'
         owner_ids: list[int] = [144462063920611328]
-        super().__init__(intents=intents, command_prefix=self._prefix, strip_after_prefix=True)
+        super().__init__(intents=intents, command_prefix=_get_prefix, strip_after_prefix=True)
         self._message_timeout = 120
 
         self._context = commands.Context
         self._start_time: float = time.time()
 
     async def setup_hook(self) -> None:
-        # Modular loading of all cogs.
-        # self._db = Kuma_DB()
-        # self._db_pool: Coroutine[Any, Any, Pool] = self._db._dev_return()
-        # self.session = aiohttp.ClientSession()
+        async with asqlite.connect(DB_FILENAME) as db:
+            await db.execute(PREFIX_SETUP_SQL)
+
         self._handler = loader.Handler(self)
-        # await self.load_extension("util_cog.py", package="..repose.dpy_cogs.cogs")
         await self._handler.cog_auto_loader()
 
     async def on_ready(self) -> None:
@@ -89,8 +111,6 @@ class Kuma_Kuma(commands.Bot):
         self._logger.info(f'{context.author.name} used {context.command}...')
 
     async def on_command_error(self, context: KumaContext, error: commands.CommandError):
-        # assert context.command
-
         if context.command is not None:
             if isinstance(error, commands.TooManyArguments):
                 await context.send(content=f'You called the {context.command.name} command with too many arguments.')
@@ -127,11 +147,10 @@ async def kuma(context: commands.Context) -> None:
     print()
 
 
-@kuma.command(name='reload')
+@kuma.command(name='reload', help="Reload all cogs.")
 @commands.is_owner()
 async def reload(context: commands.Context) -> None:
     """Reloads all cogs inside the cogs folder."""
-    # Kuma._logger.info(f'{context.author.name} used {context.command}...')
     try:
         await Kuma._handler.cog_auto_loader(reload=True)
         await context.send(f'**SUCCESS** Reloading All Cogs ', ephemeral=True, delete_after=Kuma._message_timeout)
@@ -139,11 +158,10 @@ async def reload(context: commands.Context) -> None:
         await context.send(content=f"We encountered an **Error** - \n{e}", ephemeral=True, delete_after=Kuma._message_timeout)
 
 
-@kuma.command(name='sync')
+@kuma.command(name='sync', help="Sync the bot commands to the guild.")
 @commands.is_owner()
 async def sync(context: commands.Context, local: bool = True, reset: bool = False):
     """Syncs Kuma Commands to the current guild this command was used in."""
-    # Kuma._logger.info(f'{context.author.name} used {context.command}...')
     await context.defer()
     # This keeps our DB Guild_ID Current.
 
@@ -172,6 +190,72 @@ async def sync(context: commands.Context, local: bool = True, reset: bool = Fals
         # Global command tree sync
         Kuma._logger.info(f'{Kuma.user.name} Commands Sync\'d Globally: {await Kuma.tree.sync(guild=None)}')
         await context.send(f'Successfully Sync\'d `{Kuma.user.name}s` Commands Globally...', ephemeral=True, delete_after=Kuma._message_timeout)
+
+
+@Kuma.hybrid_group(name='prefix')
+async def prefix(context: commands.Context) -> None:
+    print()
+
+
+@prefix.command(name="add", help="Add a prefix to Kuma Kuma", aliases=["prea", "pa"])
+@commands.is_owner()
+async def add_prefix(context: commands.Context, prefix: str):
+    if context.guild is not None:
+        _guild = context.guild
+    else:
+        return await context.send(content=f"This command must be used inside a guild", delete_after=Kuma._message_timeout)
+
+    async with asqlite.connect(DB_FILENAME) as db:
+        async with db.cursor() as cur:
+            await cur.execute("""INSERT INTO prefix(serverid, prefix) VALUES(?, ?)""", _guild.id, prefix.lstrip())
+            await db.commit()
+            return await context.send(content=f"Added the prefix `{prefix}` for {_guild.name}", delete_after=Kuma._message_timeout)
+
+
+@prefix.command(name="delete", help="Delete a prefix from Kuma Kuma for a guild.", aliases=["pred", "pd"])
+@commands.is_owner()
+async def delete_prefix(context: commands.Context, prefix: str):
+    if context.guild is not None:
+        _guild = context.guild
+    else:
+        return await context.send(content=f"This command must be used inside a guild", delete_after=Kuma._message_timeout)
+    async with asqlite.connect(DB_FILENAME) as db:
+        async with db.cursor() as cur:
+            await cur.execute("""DELETE FROM prefix WHERE serverid = ? and prefix = ?""", _guild.id, prefix.lstrip())
+            await db.commit()
+            return await context.send(content=f"Removed the prefix - `{prefix}`", delete_after=Kuma._message_timeout)
+
+
+@prefix.command(name="clear", help="Clear all prefixes for Kuma Kuma in a guild.", aliases=["prec", "pc"])
+@commands.is_owner()
+async def clear_prefix(context: commands.Context):
+    if context.guild is not None:
+        _guild = context.guild
+    else:
+        return await context.send(content=f"This command must be used inside a guild", delete_after=Kuma._message_timeout)
+    async with asqlite.connect(DB_FILENAME) as db:
+        async with db.cursor() as cur:
+            await cur.execute("""DELETE FROM prefix WHERE serverid = ?""", _guild.id)
+            await db.commit()
+            return await context.send(content=f"Removed all prefixs for {_guild.name}", delete_after=Kuma._message_timeout)
+
+
+@prefix.command(name="list", help="List a guilds prefixes")
+@commands.is_owner()
+async def list_prefix(context: commands.Context):
+    if context.guild is not None:
+        _guild = context.guild
+    else:
+        return await context.send(content=f"This command must be used inside a guild", delete_after=Kuma._message_timeout)
+    async with asqlite.connect(DB_FILENAME) as db:
+        async with db.cursor() as cur:
+            await cur.execute("""SELECT prefix FROM prefix WHERE serverid = ?""", _guild.id)
+            res = await cur.fetchall()
+            if res is not None:
+                _prefixes = '\n'.join([entry['prefix'] for entry in res])
+                return await context.send(content=f"**Current Prefixes:** \n{_prefixes}", delete_after=Kuma._message_timeout)
+            else:
+                return await context.send(content=f"It appears you do not have any prefix's set", delete_after=Kuma._message_timeout)
 
 
 async def main() -> None:

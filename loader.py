@@ -41,7 +41,7 @@ class Handler():
             for script in cur_cog_file_list:
                 # Ignore Pycache or similar files.
                 # Lets Ignore our Custom Permisisons Cog. We will load it on-demand.
-                if script.name.startswith('__') or not script.name.endswith('.py'):
+                if script.name.startswith('__') or script.name.startswith('_') or not script.name.endswith('.py'):
                     cur_cog_file_list.remove(script)
                     continue
 
