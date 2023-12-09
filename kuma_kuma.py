@@ -116,13 +116,16 @@ class Kuma_Kuma(commands.Bot):
                 await context.send(content=f'You called the {context.command.name} command with too many arguments.')
             elif isinstance(error, commands.MissingRequiredArgument):
                 await context.send(content=f'You called {context.command.name} command without the required arguments')
-        else:
-            await context.send(content=str(error))
 
     async def on_command_completion(self, context: commands.Context):
         if context.message.content.startswith(self._prefix):
             if context.message.channel.permissions_for(context.me).manage_messages:  # type: ignore
-                await context.message.delete()
+                try:
+                    await context.message.delete()
+                except discord.errors.NotFound:
+                    return
+                except Exception as e:
+                    self._logger.error(f"We encountered an **Error** - \n{e}")
 
     async def on_reaction_add(self, reaction: discord.Reaction, user: Union[discord.Member, discord.User]) -> None:
         """Called when a message has a reaction added to it. Similar to `on_message_edit()`, 

@@ -1,4 +1,3 @@
-from cgi import test
 import pathlib
 import os
 import logging
@@ -44,29 +43,6 @@ class Handler():
                 if script.name.startswith('__') or script.name.startswith('_') or not script.name.endswith('.py'):
                     cur_cog_file_list.remove(script)
                     continue
-
-                # module_name = script.name[:-3].capitalize()  # File name ofc.
-                # spec = importlib.util.spec_from_file_location(module_name, script)
-                # class_module = importlib.util.module_from_spec(spec) #type:ignore
-                # spec.loader.exec_module(class_module) #type:ignore
-
-                # #module_dependencies: list[str] | None = getattr(class_module, f'Dependencies', None)
-                # try:
-                #     module_dependencies: list[str] | None = class_module.Dependencies
-                # except AttributeError:
-                #     module_dependencies = None
-
-                # missing_depen = False
-                # if module_dependencies is not None:
-                #     for dependency in module_dependencies:
-                #         # If the cog we need isnt loaded; skip. We will come back around to it.
-                #         if dependency.lower() not in loaded_cogs:
-                #             missing_depen = True
-                #             break
-
-                #     if missing_depen:
-                #         self._logger.warn(f'{module_name} is ')
-                #         continue
 
                 cog = f'{path}.{script.name[:-3]}'
                 try:
