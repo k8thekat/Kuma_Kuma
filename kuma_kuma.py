@@ -23,26 +23,22 @@
 '''
 import asyncio
 import contextlib
+import logging
 import os
-from threading import current_thread, Thread
-
-
-import logger
-from dotenv import load_dotenv
 import time
-
-import utils.asqlite as asqlite
+from pathlib import Path
 from sqlite3 import Row
+from threading import Thread, current_thread
+from typing import TYPE_CHECKING, Any, Union
 
 import discord
-from discord.ext import commands
 from discord import Intents, Message
+from discord.ext import commands
+from dotenv import load_dotenv
 
 import loader
-import logging
-from typing import Union, TYPE_CHECKING, Any
-from pathlib import Path
-
+import logger
+import utils.asqlite as asqlite
 from utils.context import KumaContext
 
 script_loc: Path = Path(__file__).parent
