@@ -1,7 +1,7 @@
 python-dotenv==1.0.1
-aiofiles==23.2.1
-aiohttp==3.8.3
-asyncpraw==7.7.1
+aiofiles
+aiohttp
+asyncpraw
 discord.py==2.2.2
 fake_useragent==1.5.1
 GitPython==3.1.43
@@ -9,6 +9,5 @@ import_expression==1.1.4
 Pillow==10.3.0
 psutil==5.9.5
 pytz==2022.1
-typing_extensions==3.10.0.2
+typing_extensions==4.7
 tzlocal==5.2
-utils==1.0.2

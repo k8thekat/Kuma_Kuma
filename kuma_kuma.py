@@ -36,9 +36,9 @@ from discord import Intents, Message
 from discord.ext import commands
 from dotenv import load_dotenv
 
+import asqlite
 import loader
 import logger
-import utils.asqlite as asqlite
 from utils.context import KumaContext
 
 script_loc: Path = Path(__file__).parent
