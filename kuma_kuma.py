@@ -152,9 +152,10 @@ async def reload(context: commands.Context) -> None:
     """Reloads all cogs inside the cogs folder."""
     try:
         await Kuma._handler.cog_auto_loader(reload=True)
-        await context.send(f'**SUCCESS** Reloading All Cogs ', ephemeral=True, delete_after=Kuma._message_timeout)
     except Exception as e:
         await context.send(content=f"We encountered an **Error** - \n{e}", ephemeral=True, delete_after=Kuma._message_timeout)
+
+    await context.send(content=f'**SUCCESS** Reloading All Cogs ', ephemeral=True, delete_after=Kuma._message_timeout)
 
 
 @kuma.command(name='sync', help="Sync the bot commands to the guild.")
