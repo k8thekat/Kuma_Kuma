@@ -18,7 +18,7 @@
    You should have received a copy of the GNU General Public License
    along with Kuma Kuma Bear; see the file COPYING.  If not, write to the Free
    Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA
-   02110-1301, USA. 
+   02110-1301, USA.
 
 '''
 import asyncio
@@ -32,7 +32,8 @@ from threading import Thread, current_thread
 from typing import TYPE_CHECKING, Any, Union
 
 import discord
-from discord import Intents, Message
+from discord import Intents, Message, app_commands
+from discord.app_commands import Choice
 from discord.ext import commands
 from dotenv import load_dotenv
 
@@ -51,6 +52,15 @@ CREATE TABLE IF NOT EXISTS prefix (
     serverid INTEGER NOT NULL,
     prefix TEXT
 )"""
+
+OWNER_SETUP_SQL = """
+CREATE TABLE IF NOT EXISTS owners (
+    id INTEGER PRIMARY KEY NOT NULL,
+    ownerid INTEGER NOT NULL
+)"""
+
+# TODO - @app_commands.has_role() - Let someone define a role to use commands possibly
+# - Create custom check method for commands that looks for a certain role.
 
 
 async def _get_prefix(bot: "Kuma_Kuma", message: Message):
@@ -81,7 +91,10 @@ class Kuma_Kuma(commands.Bot):
         intents.message_content = True
         _app_id = 1053576011935129640
         self._prefix = '?'
-        owner_ids: list[int] = [144462063920611328]
+        self._trusted_users: set[int] = {144462063920611328}
+        # owner_id: int = 144462063920611328
+        self.owner_id = None
+        self.owner_ids: set[int] = {144462063920611328}
         super().__init__(intents=intents, command_prefix=_get_prefix, strip_after_prefix=True)
         self._message_timeout = 120
 
@@ -124,8 +137,8 @@ class Kuma_Kuma(commands.Bot):
                     self._logger.error(f"We encountered an **Error** - \n{e}")
 
     async def on_reaction_add(self, reaction: discord.Reaction, user: Union[discord.Member, discord.User]) -> None:
-        """Called when a message has a reaction added to it. Similar to `on_message_edit()`, 
-        if the message is not found in the internal message cache, 
+        """Called when a message has a reaction added to it. Similar to `on_message_edit()`,
+        if the message is not found in the internal message cache,
         then this event will not be called. Consider using `on_raw_reaction_add()` instead."""
         if isinstance(reaction.emoji, str):
             self._logger.info(
@@ -162,7 +175,7 @@ async def reload(context: commands.Context) -> None:
 @commands.is_owner()
 async def sync(context: commands.Context, local: bool = True, reset: bool = False):
     """Syncs Kuma Commands to the current guild this command was used in."""
-    await context.defer()
+    await context.typing(ephemeral=True)
     # This keeps our DB Guild_ID Current.
 
     if reset == True:
@@ -175,7 +188,7 @@ async def sync(context: commands.Context, local: bool = True, reset: bool = Fals
         elif context.author.id == 144462063920611328:
             # Global command tree reset
             Kuma.tree.clear_commands(guild=None)
-            Kuma._logger.info(f'{Kuma.user.name} Commands Reset Globall and Sync\'d: {await Kuma.tree.sync(guild=None)}')
+            Kuma._logger.info(f'{Kuma.user.name} Commands Reset Globally and Sync\'d: {await Kuma.tree.sync(guild=None)}')
             return await context.send(f'**WARNING** Resetting `{Kuma.user.name}s` Commands Globally...', ephemeral=True, delete_after=Kuma._message_timeout)
         else:
             return await context.send('**ERROR** You do not have permission to reset the commands.', ephemeral=True, delete_after=Kuma._message_timeout)
@@ -242,7 +255,7 @@ async def clear_prefix(context: commands.Context):
 
 @prefix.command(name="list", help="List a guilds prefixes")
 @commands.is_owner()
-async def list_prefix(context: commands.Context):
+async def list_prefix(context: commands.Context) -> Message:
     if context.guild is not None:
         _guild = context.guild
     else:
@@ -256,6 +269,40 @@ async def list_prefix(context: commands.Context):
                 return await context.send(content=f"**Current Prefixes:** \n{_prefixes}", delete_after=Kuma._message_timeout)
             else:
                 return await context.send(content=f"It appears you do not have any prefix's set", delete_after=Kuma._message_timeout)
+
+
+@commands.command(name="trusted", help="Add/Remove and list Kuma Kuma Trusted Users.")
+@commands.is_owner()
+@commands.guild_only()
+@app_commands.choices(option=[Choice(name="add", value="add"), Choice(name="remove", value="remove"), Choice(name="list", value="list")])
+async def trusted_users(context: KumaContext, option: Choice, member: Union[discord.Member, discord.User]) -> Message | None:
+    assert context.guild
+    if option == "add":
+        if member.id not in Kuma._trusted_users:
+            async with asqlite.connect(DB_FILENAME) as db:
+                async with db.cursor() as cur:
+                    await cur.execute("""INSERT INTO owners(ownerid) VALUES(?)""", member.id)
+                    await db.commit()
+                    return await context.send(content=f"Added {member.mention} as an owner", ephemeral=True, delete_after=Kuma._message_timeout)
+        else:
+            return await context.send(content=f"You are already an owner", ephemeral=True, delete_after=Kuma._message_timeout)
+
+    elif option == "remove":
+        async with asqlite.connect(DB_FILENAME) as db:
+            async with db.cursor() as cur:
+                await cur.execute("""DELETE FROM owners WHERE ownerid = ?""", member.id)
+                await db.commit()
+                res = cur.get_cursor().rowcount
+                return await context.send(content=f"Removed {res} Users as an owner", ephemeral=True, delete_after=Kuma._message_timeout)
+
+    elif option == "list":
+        async with asqlite.connect(DB_FILENAME) as db:
+            async with db.cursor() as cur:
+                await cur.execute("""SELECT ownderid FROM owners""")
+                res = await cur.fetchall()
+                _owners: list[discord.Member] = [await context.guild.fetch_member(entry['id']) for entry in res]
+                f_owners = '\n'.join([entry.display_name for entry in _owners])
+                return await context.send(content=f"**Current Owners:** \n{f_owners}", ephemeral=True, delete_after=Kuma._message_timeout)
 
 
 async def main() -> None:
