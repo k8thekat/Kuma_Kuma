@@ -59,9 +59,6 @@ CREATE TABLE IF NOT EXISTS owners (
     ownerid INTEGER NOT NULL
 )"""
 
-# TODO - @app_commands.has_role() - Let someone define a role to use commands possibly
-# - Create custom check method for commands that looks for a certain role.
-
 
 async def _get_prefix(bot: "Kuma_Kuma", message: Message):
     prefixes = [bot._prefix]
@@ -114,6 +111,7 @@ class Kuma_Kuma(commands.Bot):
     async def on_message(self, message: discord.Message) -> None:
         if message.author == self.user:
             return
+
         await super().on_message(message)
 
     async def on_command(self, context: commands.Context) -> None:
@@ -163,6 +161,8 @@ async def kuma(context: commands.Context) -> None:
 @commands.is_owner()
 async def reload(context: commands.Context) -> None:
     """Reloads all cogs inside the cogs folder."""
+    await context.typing(ephemeral=True)
+
     try:
         await Kuma._handler.cog_auto_loader(reload=True)
     except Exception as e:
