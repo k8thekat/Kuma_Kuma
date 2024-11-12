@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Union, Any, Callable, Generic, Iterable, TypeVar, Optional
+from collections.abc import Callable, Iterable
+from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union
 
 import discord
 from discord.ext import commands
