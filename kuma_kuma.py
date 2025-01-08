@@ -47,14 +47,14 @@ import mystbin
 import sentry_sdk
 from discord import Intents, Interaction, app_commands
 from discord.ext import commands
+from extensions import EXTENSIONS
+from extensions.moderator import _get_prefix, _get_trusted  # this may not work.
 
 # from discord.utils import _ColourFormatter as ColourFormatter
 # from dotenv import load_dotenv
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from sentry_sdk.integrations.asyncio import AsyncioIntegration
 
-from extensions import EXTENSIONS
-from extensions.moderator import _get_prefix, _get_trusted  # this may not work.
 from utils.context import KumaContext
 
 DB_FILENAME = "kuma_kuma.sqlite"
