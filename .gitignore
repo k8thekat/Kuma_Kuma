@@ -16,3 +16,4 @@ Kuma_Kuma.code-workspace
 kuma_kuma.py.pid
 Kuma.bash
 local.py
+.venv/*

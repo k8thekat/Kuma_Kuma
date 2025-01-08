@@ -1,0 +1,6 @@
+[submodule "private_cogs"]
+	path = extensions/private_cogs
+	url = https://github.com/k8thekat/private_cogs
+[submodule "public_cogs"]
+	path = extensions/public_cogs
+	url = https://github.com/k8thekat/public_cogs

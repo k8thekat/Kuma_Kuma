@@ -1,11 +1,11 @@
-
 import pathlib
 from pathlib import Path
+
 import asqlite
 from asqlite import Pool
 
 
-class Kuma_DB():
+class Kuma_DB:
     _DBFILE: Path = pathlib.Path("kuma.db")
     _DBExists: bool = False
     _db_pool: Pool
@@ -21,7 +21,7 @@ class Kuma_DB():
             return self._db_pool
         else:
             raise ValueError("Database does not exist")
-    
+
     async def _init_database(self) -> None:
         print()
-        #Call schema/.execute() table here..
+        # Call schema/.execute() table here..

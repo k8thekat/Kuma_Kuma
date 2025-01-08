@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Union, Any, Callable, Generic, Iterable, TypeVar, Optional
+from typing import TYPE_CHECKING, Any, TypeVar
 
-import discord
 from discord.ext import commands
 
 if TYPE_CHECKING:
+    import discord
+    from aiohttp import ClientSession
+
     from kuma_kuma import Kuma_Kuma
 
 T = TypeVar("T")
@@ -53,6 +55,10 @@ T = TypeVar("T")
 class KumaContext(commands.Context["Kuma_Kuma"]):
     bot: Kuma_Kuma
 
+    @property
+    def session(self) -> ClientSession:
+        return self.bot.session
+
     # async def disambiguate(self, matches: list[T], entry: Callable[[T], Any], *, ephemeral: bool = False) -> T:
     #     if len(matches) == 0:
     #         raise ValueError('No results found.')
@@ -72,7 +78,7 @@ class KumaContext(commands.Context["Kuma_Kuma"]):
 
 
 class KumaGuildContext(KumaContext):
-    author: discord.Member
-    guild: discord.Guild
-    channel: Union[discord.VoiceChannel, discord.TextChannel, discord.Thread]
-    me: discord.Member
+    author: discord.Member  # type: ignore
+    guild: discord.Guild  # type: ignore
+    # channel: Union[discord.VoiceChannel, discord.TextChannel, discord.Thread]
+    me: discord.Member  # type: ignore

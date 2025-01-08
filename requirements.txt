@@ -11,3 +11,5 @@ psutil==5.9.5
 pytz==2022.1
 typing_extensions==4.7
 tzlocal==5.2
+mystbin
+asqlite
