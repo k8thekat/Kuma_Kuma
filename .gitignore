@@ -9,12 +9,14 @@ Kuma_Reddit.py.log
 .vscode/*
 
 .env
-*.sqlite
+*.sqlite*
 *db
+*.ini*
 
 Kuma_Kuma.code-workspace
 kuma_kuma.py.pid
 Kuma.bash
 local.py
 .venv/*
-local.ini
+*.zip
+*/IGNORED/*
