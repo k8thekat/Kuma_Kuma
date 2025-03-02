@@ -38,7 +38,7 @@ from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from pprint import pformat
 from threading import Thread, current_thread
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, ClassVar, Union
 
 import aiohttp
 import asqlite
@@ -47,26 +47,84 @@ import mystbin
 import sentry_sdk
 from discord import Intents, Interaction, app_commands
 from discord.ext import commands
-from extensions import EXTENSIONS
-from extensions.moderator import _get_prefix, _get_trusted  # this may not work.
 
 # from discord.utils import _ColourFormatter as ColourFormatter
-# from dotenv import load_dotenv
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from sentry_sdk.integrations.asyncio import AsyncioIntegration
 
+from extensions import EXTENSIONS
 from utils.context import KumaContext
+
+if TYPE_CHECKING:
+    from sqlite3 import Row
 
 DB_FILENAME = "kuma_kuma.sqlite"
 DB_PATH: str = Path(__file__).parent.joinpath(DB_FILENAME).as_posix()
 
 
+async def _get_prefix(bot: Kuma_Kuma, message: discord.Message) -> list[str]:
+    """
+    Retrieves the prefixes for the current guild.
+    """
+    prefixes: set[str] = bot._prefixes
+    if message.guild is not None:
+        guild: int = message.guild.id
+
+        async with bot.pool.acquire() as conn:
+            res: list[Row] = await conn.fetchall("""SELECT prefix FROM prefix WHERE serverid = ?""", guild)
+            if res is not None and len(res) >= 1:
+                prefixes.update([entry["prefix"] for entry in res if entry["prefix"] not in prefixes])
+
+    wmo_func = commands.when_mentioned_or(*prefixes)
+    # bot._prefixes.update(prefixes)
+    return wmo_func(bot, message)
+
+
+async def _get_trusted(bot: Kuma_Kuma) -> set[int]:
+    """
+    Retrieves all trusted users aka Owners.
+    """
+    trusted: set[int] = bot.owner_ids
+    async with bot.pool.acquire() as conn:
+        res: list[Row] = await conn.fetchall("""SELECT ownerid FROM owners""")
+        if res is not None and len(res) >= 1:
+            trusted.update([entry["ownerid"] for entry in res])
+    return trusted
+
+
+PREFIX_SETUP_SQL = """
+CREATE TABLE IF NOT EXISTS prefix (
+    id INTEGER PRIMARY KEY NOT NULL,
+    serverid INTEGER NOT NULL,
+    prefix TEXT
+)"""
+
+OWNER_SETUP_SQL = """
+CREATE TABLE IF NOT EXISTS owners (
+    id INTEGER PRIMARY KEY NOT NULL,
+    ownerid INTEGER NOT NULL
+)"""
+
+
 class LogHandler:
+    """
+    Discord Multi-line code block formats:
+    - https://github.com/highlightjs/highlight.js/blob/main/SUPPORTED_LANGUAGES.md
+
+    """
+
+    cur_log: Path
+    logger: logging.Logger
+    code_formats: ClassVar[list[str]] = ["excel", "nc", "ml", " nim", " ps", " prolog", "thor"]
+    default_code_format: str = "ps"
+
     def __init__(self, sentry: str, level: int = logging.INFO, webhook_url: str = "") -> None:
         sentry_sdk.init(dsn=sentry, integrations=[AioHttpIntegration(), AsyncioIntegration()])
         self.webhook_url: str = webhook_url
         self.session: aiohttp.ClientSession
         self.path: Path = pathlib.Path(__file__).parent.joinpath("logs")
+        self.cur_log: Path = pathlib.Path(__file__).parent.joinpath("logs/log.log")
+        self.logger = logging.getLogger()
 
         logging.basicConfig(
             level=level,
@@ -75,7 +133,7 @@ class LogHandler:
             handlers=[
                 logging.StreamHandler(stream=sys.stdout),
                 TimedRotatingFileHandler(
-                    filename=pathlib.Path.as_posix(self=self.path) + "/log",
+                    filename=pathlib.Path.as_posix(self=self.path) + "/log.log",
                     when="midnight",
                     atTime=datetime.datetime.min.time(),
                     backupCount=4,
@@ -85,38 +143,47 @@ class LogHandler:
             ],
         )
 
-    # todo - See about filtering/grabbing specific events or range of lines from logfile.
+    def parse_log(self) -> str:
+        if self.cur_log.exists():
+            try:
+                data: str = self.cur_log.read_text()
+            except Exception as e:
+                self.logger.error(msg="We encountered an error executing upload_log.", exc_info=e)
+                raise ValueError("We encountered an error executing upload_log.")
+
+            return data[-1900:]
+
+        else:
+            raise FileNotFoundError("The most recent log file is not present. | path: %s", self.cur_log.resolve())
+
     async def upload_log(
         self,
     ) -> None:
         """Uploads the most recent log file to a mystbin."""
-        logger = logging.getLogger()
-        cur_log: Path = pathlib.Path(__file__).parent.joinpath("logs/log")
-        if cur_log.exists():
+        if self.cur_log.exists():
             try:
-                data: str = cur_log.read_text()
+                data: str = self.cur_log.read_text()
             except Exception as e:
-                logger.error(msg="We encountered an error executing upload_log.", exc_info=e)
+                self.logger.error(msg="We encountered an error executing upload_log.", exc_info=e)
                 raise ValueError("We encountered an error executing upload_log.")
 
             await self.create_paste(content=data, session=self.session)
         else:
-            raise FileNotFoundError("The most recent log file is not present. | path: %s", cur_log.resolve())
+            raise FileNotFoundError("The most recent log file is not present. | path: %s", self.cur_log.resolve())
 
     async def webhook_send_log(
         self,
     ) -> None:
         """Uploads the most recent log file to a webhook."""
-        cur_log: Path = pathlib.Path(__file__).parent.joinpath("logs/log")
 
-        if not cur_log.exists():
-            raise FileNotFoundError("The most recent log file is not present. | path: %s", cur_log.resolve())
+        if not self.cur_log.exists():
+            raise FileNotFoundError("The most recent log file is not present. | path: %s", self.cur_log.resolve())
 
         # size in Mb - to prevent exceeding Discord file attachment limits.
-        size: float = cur_log.stat().st_size / (1024 * 1024)
+        size: float = self.cur_log.stat().st_size / (1024 * 1024)
         if size < 10:
             webhook: discord.Webhook = discord.Webhook.from_url(url=self.webhook_url, session=aiohttp.ClientSession())
-            await webhook.send(file=discord.File(fp=cur_log.resolve()))
+            await webhook.send(file=discord.File(fp=self.cur_log.resolve()))
         else:
             raise OverflowError("The log file size is larger than Discord Webhook limit (10Mb). | size: %s", size)
 
@@ -151,6 +218,8 @@ class ProxyObject(discord.Object):
 
 
 class KumaCommandTree(app_commands.CommandTree):
+    """This handles any Application Commands"""
+
     client: Kuma_Kuma  # type: ignore
     _mention_app_commands: dict[int | None, list[app_commands.AppCommand]]
 
@@ -239,7 +308,8 @@ class KumaCommandTree(app_commands.CommandTree):
         guild = interaction.guild
         channel_name: str = (
             "In DMs" if isinstance(channel, (discord.DMChannel, discord.PartialMessageable)) else channel.name
-        )
+        )  # type: ignore - for some reason it thinks channel is None; despite the assertion.
+
         location_fmt: str = f"Channel: {channel_name} ({channel.id})"
         if guild:
             location_fmt += f"\nGuild: {guild.name} ({guild.id})"
@@ -262,9 +332,9 @@ class KumaCommandTree(app_commands.CommandTree):
 class Kuma_Kuma(commands.Bot):
     logger: logging.Logger = logging.getLogger()
     _app_id = 1053576011935129640
-    _prefix: str
-    owner_ids: set[int]  # type: ignore - Collections are immutable
-
+    _prefixes: ClassVar[set[str]] = set()
+    # The owner_ids is updated via the Trust Add/Remove Command.
+    owner_ids: set[int]  # type: ignore - Collections are immutable --
     message_timeout = 120
     start_time: float = time.time()
     pool: asqlite.Pool
@@ -279,6 +349,7 @@ class Kuma_Kuma(commands.Bot):
         self.owner_id = None
         self.config: KumaConfig = config
         self.loghandler: LogHandler = loghandler
+        self._prefixes.add("kuma")
         super().__init__(intents=intents, command_prefix=_get_prefix, strip_after_prefix=True)
 
     @property
@@ -296,6 +367,14 @@ class Kuma_Kuma(commands.Bot):
     async def setup_hook(self) -> None:
         self.bot_app_info: discord.AppInfo = await self.application_info()
         self.mb_client = mystbin.Client(session=self.session)
+        try:
+            async with self.pool.acquire() as conn:
+                await conn.execute(PREFIX_SETUP_SQL)
+                await conn.execute(OWNER_SETUP_SQL)
+            self.owner_ids = await _get_trusted(bot=self)  # type: ignore - As long as it's a set of Ints it's fine.
+        except Exception as e:
+            self.logger.error("We encountered an error executing %s", __name__ + "setup_hook", exc_info=e)
+            raise ConnectionError("Unable to connect to the database.")
 
     async def on_ready(self) -> None:
         self.logger.info(msg="Kuma Kuma Bear <3")
@@ -314,20 +393,28 @@ class Kuma_Kuma(commands.Bot):
 
     async def on_command_error(self, context: KumaContext, error: commands.CommandError) -> None:
         if context.command is not None:
+            self.logger.error("We encountered an error executing: %s", context.command, exc_info=error)
+
             if isinstance(error, commands.TooManyArguments):
                 await context.send(content=f"You called the {context.command.name} command with too many arguments.")
             elif isinstance(error, commands.MissingRequiredArgument):
                 await context.send(content=f"You called {context.command.name} command without the required arguments")
             else:
+                await context.send(
+                    content=f"We encountered an error executing the command {context.command.name}.",
+                    ephemeral=True,
+                    delete_after=30,
+                )
                 self.logger.debug(pformat(vars(context.command)))
-                self.logger.error("We encountered an error executing %s", context.command, exc_info=error)
+                return
 
-        self.logger.debug(pformat(vars(context.command)))
-        self.logger.error("We encountered an error executing %s", context.command, exc_info=error)
+        self.logger.error("We encountered an error executing: %s", context, exc_info=error)
+        await context.send(content="We encountered an error executing the command.", ephemeral=True, delete_after=30)
+        self.logger.debug(pformat(vars(context)))
 
     async def on_command_completion(self, context: commands.Context) -> None:
         if (
-            context.message.content.startswith(self._prefix)
+            context.message.content.startswith(tuple(self._prefixes))
             and context.message.channel.permissions_for(context.me).manage_messages  # type: ignore
         ):
             try:
@@ -336,7 +423,7 @@ class Kuma_Kuma(commands.Bot):
             except discord.errors.NotFound:
                 return
             except Exception as e:
-                self.logger.error("We encountered an error executing %s", context.command, exc_info=e)
+                self.logger.error("We encountered an error executing: %s", context.command, exc_info=e)
 
     async def on_reaction_add(self, reaction: discord.Reaction, user: Union[discord.Member, discord.User]) -> None:
         """Called when a message has a reaction added to it. Similar to `on_message_edit()`,
@@ -372,11 +459,15 @@ class KumaConfig:
     token: str
     sentry_io: str
     logging_webhook: str
+    github_owner: str
+    github_token: str
 
-    def __init__(self, token: str, sentry_io: str, logging_webhook: str) -> None:
+    def __init__(self, token: str, sentry_io: str, logging_webhook: str, github_owner: str, github_token: str) -> None:
         self.token = token
         self.sentry_io = sentry_io
         self.logging_webhook = logging_webhook
+        self.github_owner = github_owner
+        self.github_token = github_token
 
 
 def ini_load() -> KumaConfig:
@@ -394,6 +485,8 @@ def ini_load() -> KumaConfig:
                 token=settings.get(section="DISCORD", option="token"),
                 sentry_io=settings.get(section="SENTRY_IO", option="dsn"),
                 logging_webhook=settings.get(section="DISCORD", option="logging_webhook"),
+                github_owner=settings.get(section="GITHUB", option="owner"),
+                github_token=settings.get(section="GITHUB", option="token"),
             )
         except Exception as e:
             logger.error(msg="Failed to parse the local.ini", exc_info=e)
@@ -409,17 +502,16 @@ async def main() -> None:
     config: KumaConfig = ini_load()
     async with (
         Kuma_Kuma(config=config, loghandler=LogHandler(sentry=config.sentry_io, webhook_url=config.logging_webhook)) as kuma,
-        aiohttp.ClientSession() as session,  # todo - waiting to hear back from Umbra on json_serialize parameter.
+        aiohttp.ClientSession() as session,  # todo - I can make a json serializer if needed but not needed (per Umbra)
         asqlite.create_pool(database=DB_PATH) as pool,
     ):
         kuma.pool = pool
-        kuma.owner_ids = await _get_trusted(bot=kuma)
         kuma.session = session
         for extension in EXTENSIONS:
             await kuma.load_extension(name=extension.name)
             kuma.logger.info("Loaded %sextension: %s", "module " if extension.ispkg else "", extension.name)
 
-    await kuma.start()
+        await kuma.start()
 
 
 if __name__ == "__main__":

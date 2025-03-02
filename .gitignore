@@ -17,3 +17,4 @@ kuma_kuma.py.pid
 Kuma.bash
 local.py
 .venv/*
+local.ini

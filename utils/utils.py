@@ -8,6 +8,7 @@ from types import ModuleType
 import aiofiles
 
 
+# todo - Put this funciton into a command.
 def reload_module_dependencies(module_path: str, /) -> set[str]:
     """
     Reloads all dependencies of a module with importlib
@@ -47,34 +48,3 @@ def reload_module_dependencies(module_path: str, /) -> set[str]:
             out.append(module.__name__)
 
     return set(out)
-
-
-async def count_lines(path: str, filetype: str = ".py", skip_venv: bool = True) -> int:
-    lines = 0
-    for i in os.scandir(path=path):
-        if i.is_file():
-            if i.path.endswith(filetype):
-                if skip_venv and re.search(pattern=r"(\\|/)?venv(\\|/)", string=i.path):
-                    continue
-                lines += len((await (await aiofiles.open(file=i.path)).read()).split(sep="\n"))
-        elif i.is_dir():
-            lines += await count_lines(path=i.path, filetype=filetype)
-    return lines
-
-
-async def count_others(path: str, filetype: str = ".py", file_contains: str = "def", skip_venv: bool = True) -> int:
-    """Counts the files in directory or functions."""
-    line_count = 0
-    for i in os.scandir(path=path):
-        if i.is_file():
-            if i.path.endswith(filetype):
-                if skip_venv and re.search(pattern=r"(\\|/)?venv(\\|/)", string=i.path):
-                    continue
-                line_count += len([
-                    line
-                    for line in (await (await aiofiles.open(file=i.path)).read()).split(sep="\n")
-                    if file_contains in line
-                ])
-        elif i.is_dir():
-            line_count += await count_others(path=i.path, filetype=filetype, file_contains=file_contains)
-    return line_count
