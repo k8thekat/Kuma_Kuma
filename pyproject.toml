@@ -1,10 +1,9 @@
-
 [tool.ruff]
-target-version = "py311"
+target-version = "py310"
 line-length = 125
 
 [tool.ruff.lint]
-exclude = ["docs/extensions/*.py", "**log**"]
+exclude = ["docs/extensions/*.py", "logs"]
 select = [
     "A",
     "C4",
@@ -14,7 +13,7 @@ select = [
     "PTH",
     "RUF",
     "SIM",
-    "TCH",
+    "TC",
     "UP",
     "W",
     "PERF",
@@ -32,9 +31,8 @@ ignore = [
     "UP034",
     "UP038",
     "UP007",
-    "ANN101",
-    "ANN102",
     "ANN401",
+    "RUF052", # for filtering "local dummy variable is accessed" eg. - vars using `_`
 ]
 
 [tool.ruff.lint.isort]
@@ -52,5 +50,6 @@ parametrize-names-type = "tuple"
 [tool.pyright]
 useLibraryCodeForTypes = true
 typeCheckingMode = "standard"
-pythonVersion = "3.9"
+pythonVersion = "3.10"
 reportIncompatibleMethodOverride = false
+exclude = ["logs/**", "**/.venv/**"]
