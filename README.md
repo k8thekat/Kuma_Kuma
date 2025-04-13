@@ -1,2 +1,2 @@
 # Kuma_Kuma
-A discord bot to assist developers and bring basic features to your discord server.
+A personal Discord Bot for assisting in Discord.py Development.
