@@ -112,6 +112,7 @@ class KumaCog(commands.Cog):
     def __init__(self, bot: Kuma_Kuma) -> None:
         self.bot = bot
         self.logger = bot.logger
+        self.logger.name = f"{self.__class__.__name__}"
         self.message_timeout = bot.message_timeout
 
     async def get_guild(self) -> discord.Guild | None:
