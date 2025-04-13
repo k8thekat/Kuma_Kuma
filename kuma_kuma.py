@@ -34,6 +34,7 @@ import time
 import traceback
 from configparser import ConfigParser
 from datetime import timedelta
+from io import BytesIO
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from pprint import pformat
@@ -118,13 +119,17 @@ class LogHandler:
     code_formats: ClassVar[list[str]] = ["excel", "nc", "ml", " nim", " ps", " prolog", "thor"]
     default_code_format: str = "ps"
 
-    def __init__(self, sentry: str, level: int = logging.INFO, webhook_url: str = "") -> None:
-        sentry_sdk.init(dsn=sentry, integrations=[AioHttpIntegration(), AsyncioIntegration()])
+    def __init__(self, sentry: str, level: int = logging.INFO, webhook_url: str = "", local_dev: bool = False) -> None:
+        self.logger = logging.getLogger()
+        if local_dev == False:
+            self.logger.info("Sentry SDK is Enabled -- Flag: %s", local_dev)
+            sentry_sdk.init(dsn=sentry, integrations=[AioHttpIntegration(), AsyncioIntegration()])
+        else:
+            self.logger.warning("Sentry SDK is Disabled -- Flag: %s", local_dev)
         self.webhook_url: str = webhook_url
         self.session: aiohttp.ClientSession
         self.path: Path = pathlib.Path(__file__).parent.joinpath("logs")
         self.cur_log: Path = pathlib.Path(__file__).parent.joinpath("logs/log.log")
-        self.logger = logging.getLogger()
 
         logging.basicConfig(
             level=level,
@@ -207,6 +212,16 @@ class LogHandler:
             raise ValueError("An argument for `content` or `files` must be provided.")
 
         return await mystbin.Client(session=session).create_paste(files=post_files, password=password, expires=expires)
+
+    @staticmethod
+    def dump_file(data: str | BytesIO, file_name: str) -> None:
+        if isinstance(data, BytesIO):
+            data = data.read().decode(encoding="utf-8")
+
+        with Path().joinpath(f"{file_name}.dump").open("w+") as f:
+            f.write(data)
+
+        f.close()
 
 
 class ProxyObject(discord.Object):
@@ -306,9 +321,7 @@ class KumaCommandTree(app_commands.CommandTree):
         channel = interaction.channel
         assert channel  # always there
         guild = interaction.guild
-        channel_name: str = (
-            "In DMs" if isinstance(channel, (discord.DMChannel, discord.PartialMessageable)) else channel.name
-        )  # type: ignore - for some reason it thinks channel is None; despite the assertion.
+        channel_name: str = "In DMs" if isinstance(channel, (discord.DMChannel, discord.PartialMessageable)) else channel.name  # type: ignore - for some reason it thinks channel is None; despite the assertion.
 
         location_fmt: str = f"Channel: {channel_name} ({channel.id})"
         if guild:
@@ -414,8 +427,7 @@ class Kuma_Kuma(commands.Bot):
 
     async def on_command_completion(self, context: commands.Context) -> None:
         if (
-            context.message.content.startswith(tuple(self._prefixes))
-            and context.message.channel.permissions_for(context.me).manage_messages  # type: ignore
+            context.message.content.startswith(tuple(self._prefixes)) and context.message.channel.permissions_for(context.me).manage_messages  # type: ignore
         ):
             try:
                 await context.message.delete()
@@ -431,7 +443,7 @@ class Kuma_Kuma(commands.Bot):
         then this event will not be called. Consider using `on_raw_reaction_add()` instead."""
         if isinstance(reaction.emoji, str):
             self.logger.info(
-                "Emoji Used: %s Unicode: %s by %s",
+                "Reaction.Emoji Used: %s Unicode: %s by %s",
                 reaction.emoji,
                 reaction.emoji.encode(encoding="unicode-escape").decode(encoding="ASCII"),
                 user.name,
@@ -446,9 +458,7 @@ class Kuma_Kuma(commands.Bot):
                 reaction.emoji.name,
             )
 
-    async def get_context(
-        self, origin: Union[discord.Interaction, discord.Message], /, *, cls: type[KumaContext] = KumaContext
-    ) -> KumaContext:
+    async def get_context(self, origin: Union[discord.Interaction, discord.Message], /, *, cls: type[KumaContext] = KumaContext) -> KumaContext:
         return await super().get_context(origin, cls=cls)
 
     async def start(self) -> None:
@@ -496,12 +506,15 @@ def ini_load() -> KumaConfig:
     return _temp
 
 
-async def main() -> None:
+async def main(local_dev: bool = False) -> None:
     cur_thread: Thread = current_thread()
     cur_thread.name = "Kuma Kuma Bear"
     config: KumaConfig = ini_load()
     async with (
-        Kuma_Kuma(config=config, loghandler=LogHandler(sentry=config.sentry_io, webhook_url=config.logging_webhook)) as kuma,
+        Kuma_Kuma(
+            config=config,
+            loghandler=LogHandler(sentry=config.sentry_io, webhook_url=config.logging_webhook, local_dev=local_dev),
+        ) as kuma,
         aiohttp.ClientSession() as session,  # todo - I can make a json serializer if needed but not needed (per Umbra)
         asqlite.create_pool(database=DB_PATH) as pool,
     ):
