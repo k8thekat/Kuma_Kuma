@@ -20,3 +20,6 @@ local.py
 .venv/*
 *.zip
 */IGNORED/*
+*token.json
+*secret.json
+calendar_ids.py

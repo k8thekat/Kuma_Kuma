@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, ClassVar, Literal, Union
 
 import discord
 from discord.ext import commands
 
 if TYPE_CHECKING:
+    from datetime import datetime
     from logging import Logger
 
     from kuma_kuma import Kuma_Kuma
@@ -108,6 +109,7 @@ class KumaCog(commands.Cog):
     owner_guild = discord.Object(id=602285328320954378)
     emoji_table: KumaEmojiTable = KumaEmojiTable()
     resources: KumaResources = KumaResources()
+    _timestamp_styles = Literal["F", "f", "D", "d", "T", "t", "R"]
 
     def __init__(self, bot: Kuma_Kuma) -> None:
         self.bot = bot
@@ -117,3 +119,29 @@ class KumaCog(commands.Cog):
 
     async def get_guild(self) -> discord.Guild | None:
         return self.bot.get_guild(self.owner_guild.id)
+
+    def to_discord_timestamp(self, time: datetime, style: _timestamp_styles = "F") -> str:
+        """
+        Converts a Date Time value into each Discord users local timezone for display.
+
+        Parameters
+        -----------
+        time: :class:`datetime`
+            The datetime object to timestamp.
+        style: :class:`_timestamp_styles`, optional
+            The Format to display the text in, by default "F".
+
+        Returns
+        --------
+        :class:`str`
+            The markdown text to use in Discord content to display the timestmap.
+
+        Raises
+        -------
+        :exc:`ValueError`
+            If the `style` parameter is invalid.
+        """
+        # https://sesh.fyi/timestamp/
+        if style != self._timestamp_styles:
+            raise ValueError("You provided an invalid Timestamp Style argument. | Style: %s", style)
+        return f"<t:{int(time.timestamp())}:{style}>"

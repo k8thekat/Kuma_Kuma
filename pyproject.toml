@@ -1,5 +1,5 @@
 [tool.ruff]
-target-version = "py310"
+target-version = "py312"
 line-length = 150
 
 [tool.ruff.lint]
@@ -50,6 +50,6 @@ parametrize-names-type = "tuple"
 [tool.pyright]
 useLibraryCodeForTypes = true
 typeCheckingMode = "standard"
-pythonVersion = "3.10"
+pythonVersion = "3.12"
 reportIncompatibleMethodOverride = false
 exclude = ["logs/**", "**/.venv/**"]

@@ -13,3 +13,5 @@ typing_extensions
 tzlocals
 mystbin
 asqlite
+git+https://github.com/k8thekat/GoogleAPI-python
+git+https://github.com/k8thekat/FreshDeskAPI

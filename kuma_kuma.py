@@ -43,6 +43,7 @@ from typing import TYPE_CHECKING, ClassVar, Union
 
 import aiohttp
 import asqlite
+import colorlog
 import discord
 import mystbin
 import sentry_sdk
@@ -54,6 +55,7 @@ from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from sentry_sdk.integrations.asyncio import AsyncioIntegration
 
 from extensions import EXTENSIONS
+from utils.cog import KumaEmojiTable, KumaResources
 from utils.context import KumaContext
 
 if TYPE_CHECKING:
@@ -337,7 +339,7 @@ class KumaCommandTree(app_commands.CommandTree):
         else:
             e.description = f"```py\n{clean}\n```"
 
-        e.timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
+        e.timestamp = datetime.datetime.now(tz=datetime.UTC)
         await self.client.logging_webhook.send(embed=e)
         await self.client.owner.send(embed=e)
 
@@ -352,6 +354,10 @@ class Kuma_Kuma(commands.Bot):
     start_time: float = time.time()
     pool: asqlite.Pool
     session: aiohttp.ClientSession
+
+    # These are duplicated and located inside any "Cog" class that inherits "Kuma_Cog"
+    emoji_table: KumaEmojiTable = KumaEmojiTable()
+    resources: KumaResources = KumaResources()
     if TYPE_CHECKING:
         user: discord.ClientUser
 
@@ -407,11 +413,20 @@ class Kuma_Kuma(commands.Bot):
     async def on_command_error(self, context: KumaContext, error: commands.CommandError) -> None:
         if context.command is not None:
             self.logger.error("We encountered an error executing: %s", context.command, exc_info=error)
-
+            if isinstance(error, commands.errors.CommandNotFound):
+                await context.send(
+                    content=f"{self.emoji_table.to_inline_emoji('kuma_crying')}I can't run the command `{context.command.name}` as it doesn't exist!",
+                    ephemeral=True,
+                    delete_after=30,
+                )
             if isinstance(error, commands.TooManyArguments):
-                await context.send(content=f"You called the {context.command.name} command with too many arguments.")
+                await context.send(
+                    content=f"You called the `{context.command.name}` command with too many arguments.", ephemeral=True, delete_after=30
+                )
             elif isinstance(error, commands.MissingRequiredArgument):
-                await context.send(content=f"You called {context.command.name} command without the required arguments")
+                await context.send(
+                    content=f"You called `{context.command.name}` command without the required arguments", ephemeral=True, delete_after=30
+                )
             else:
                 await context.send(
                     content=f"We encountered an error executing the command {context.command.name}.",
@@ -422,7 +437,7 @@ class Kuma_Kuma(commands.Bot):
                 return
 
         self.logger.error("We encountered an error executing: %s", context, exc_info=error)
-        await context.send(content="We encountered an error executing the command.", ephemeral=True, delete_after=30)
+        # await context.send(content="We encountered an error executing the command.", ephemeral=True, delete_after=30)
         self.logger.debug(pformat(vars(context)))
 
     async def on_command_completion(self, context: commands.Context) -> None:
@@ -523,7 +538,8 @@ async def main(local_dev: bool = False) -> None:
         for extension in EXTENSIONS:
             await kuma.load_extension(name=extension.name)
             kuma.logger.info("Loaded %sextension: %s", "module " if extension.ispkg else "", extension.name)
-
+        await kuma.load_extension(name="extensions.private.work")
+        kuma.logger.info("Loaded extension: %s", "private.work")
         await kuma.start()
 
 
