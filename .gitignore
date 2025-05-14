@@ -22,4 +22,4 @@ local.py
 */IGNORED/*
 *token.json
 *secret.json
-calendar_ids.py
+*cache

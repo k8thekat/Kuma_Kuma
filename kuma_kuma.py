@@ -396,6 +396,7 @@ class Kuma_Kuma(commands.Bot):
             raise ConnectionError("Unable to connect to the database.")
 
     async def on_ready(self) -> None:
+        self.logger.name = "Kuma Kuma"
         self.logger.info(msg="Kuma Kuma Bear <3")
 
     def is_me(self, message: discord.Message) -> bool:
@@ -538,8 +539,6 @@ async def main(local_dev: bool = False) -> None:
         for extension in EXTENSIONS:
             await kuma.load_extension(name=extension.name)
             kuma.logger.info("Loaded %sextension: %s", "module " if extension.ispkg else "", extension.name)
-        await kuma.load_extension(name="extensions.private.work")
-        kuma.logger.info("Loaded extension: %s", "private.work")
         await kuma.start()
 
 
