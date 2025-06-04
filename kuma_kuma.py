@@ -383,6 +383,13 @@ class Kuma_Kuma(commands.Bot):
     def uptime(self) -> timedelta:
         return timedelta(seconds=(round(time.time() - self.start_time)))
 
+    @property
+    def local_ini(self) -> Path:
+        """
+        Path directly to the local.ini file.
+        """
+        return Path(__file__).parent.joinpath("local.ini")
+
     async def setup_hook(self) -> None:
         self.bot_app_info: discord.AppInfo = await self.application_info()
         self.mb_client = mystbin.Client(session=self.session)
