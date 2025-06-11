@@ -39,7 +39,7 @@ from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from pprint import pformat
 from threading import Thread, current_thread
-from typing import TYPE_CHECKING, ClassVar, Union
+from typing import TYPE_CHECKING, ClassVar, Optional, Union
 
 import aiohttp
 import asqlite
@@ -61,6 +61,8 @@ from utils.context import KumaContext
 if TYPE_CHECKING:
     from sqlite3 import Row
 
+    from discord.ext.tasks import Loop
+
 DB_FILENAME = "kuma_kuma.sqlite"
 DB_PATH: str = Path(__file__).parent.joinpath(DB_FILENAME).as_posix()
 
@@ -69,7 +71,7 @@ async def _get_prefix(bot: Kuma_Kuma, message: discord.Message) -> list[str]:
     """
     Retrieves the prefixes for the current guild.
     """
-    prefixes: set[str] = bot._prefixes
+    prefixes: set[str] = set()
     if message.guild is not None:
         guild: int = message.guild.id
 
@@ -197,11 +199,11 @@ class LogHandler:
     @staticmethod
     async def create_paste(
         *,
-        content: str | None = None,
-        files: list[tuple[str, str]] | None = None,
-        password: str | None = None,
-        expires: datetime.datetime | None = None,
-        session: aiohttp.ClientSession | None = None,
+        content: Optional[str] = None,
+        files: Optional[list[tuple[str, str]]] = None,
+        password: Optional[str] = None,
+        expires: Optional[datetime.datetime] = None,
+        session: Optional[aiohttp.ClientSession] = None,
     ) -> mystbin.Paste:
         if not content and not files:
             raise ValueError("Either `content` or `files` must be provided.")
@@ -240,13 +242,13 @@ class KumaCommandTree(app_commands.CommandTree):
     client: Kuma_Kuma  # type: ignore
     _mention_app_commands: dict[int | None, list[app_commands.AppCommand]]
 
-    async def sync(self, *, guild: discord.abc.Snowflake | None = None) -> list[app_commands.AppCommand]:
+    async def sync(self, *, guild: Optional[discord.abc.Snowflake] = None) -> list[app_commands.AppCommand]:
         """Method overwritten to store the commands."""
         ret = await super().sync(guild=guild)
         self._mention_app_commands[guild.id if guild else None] = ret
         return ret
 
-    async def fetch_commands(self, *, guild: discord.abc.Snowflake | None = None) -> list[app_commands.AppCommand]:
+    async def fetch_commands(self, *, guild: Optional[discord.abc.Snowflake] = None) -> list[app_commands.AppCommand]:
         """Method overwritten to store the commands."""
         ret = await super().fetch_commands(guild=guild)
         self._mention_app_commands[guild.id if guild else None] = ret
@@ -256,8 +258,8 @@ class KumaCommandTree(app_commands.CommandTree):
         self,
         command: app_commands.Command | app_commands.Group | str,
         *,
-        guild: discord.abc.Snowflake | None = None,
-    ) -> str | None:
+        guild: Optional[discord.abc.Snowflake] = None,
+    ) -> Optional[str]:
         """Retrieves the mention of an AppCommand given a specific command name, and optionally, a guild.
         Parameters
         ----------
@@ -345,7 +347,7 @@ class KumaCommandTree(app_commands.CommandTree):
 
 
 class Kuma_Kuma(commands.Bot):
-    logger: logging.Logger = logging.getLogger()
+    logger: logging.Logger = logging.getLogger(__name__)
     _app_id = 1053576011935129640
     _prefixes: ClassVar[set[str]] = set()
     # The owner_ids is updated via the Trust Add/Remove Command.
@@ -354,6 +356,7 @@ class Kuma_Kuma(commands.Bot):
     start_time: float = time.time()
     pool: asqlite.Pool
     session: aiohttp.ClientSession
+    _loops: list[Loop]
 
     # These are duplicated and located inside any "Cog" class that inherits "Kuma_Cog"
     emoji_table: KumaEmojiTable = KumaEmojiTable()
@@ -369,6 +372,7 @@ class Kuma_Kuma(commands.Bot):
         self.config: KumaConfig = config
         self.loghandler: LogHandler = loghandler
         self._prefixes.add("kuma")
+        self._loops = []
         super().__init__(intents=intents, command_prefix=_get_prefix, strip_after_prefix=True)
 
     @property
@@ -389,6 +393,10 @@ class Kuma_Kuma(commands.Bot):
         Path directly to the local.ini file.
         """
         return Path(__file__).parent.joinpath("local.ini")
+
+    @property
+    def task_loops(self) -> list[Loop]:
+        return self._loops
 
     async def setup_hook(self) -> None:
         self.bot_app_info: discord.AppInfo = await self.application_info()
@@ -427,14 +435,17 @@ class Kuma_Kuma(commands.Bot):
                     ephemeral=True,
                     delete_after=30,
                 )
-            if isinstance(error, commands.TooManyArguments):
+                return
+            elif isinstance(error, commands.TooManyArguments):
                 await context.send(
                     content=f"You called the `{context.command.name}` command with too many arguments.", ephemeral=True, delete_after=30
                 )
+                return
             elif isinstance(error, commands.MissingRequiredArgument):
                 await context.send(
                     content=f"You called `{context.command.name}` command without the required arguments", ephemeral=True, delete_after=30
                 )
+                return
             else:
                 await context.send(
                     content=f"We encountered an error executing the command {context.command.name}.",
@@ -444,8 +455,8 @@ class Kuma_Kuma(commands.Bot):
                 self.logger.debug(pformat(vars(context.command)))
                 return
 
-        self.logger.error("We encountered an error executing: %s", context, exc_info=error)
-        # await context.send(content="We encountered an error executing the command.", ephemeral=True, delete_after=30)
+        self.logger.error("We encountered an error executing a command. | Guild: %s | Error: %s", context.guild, error)
+        await context.send(content="We encountered an error executing the command.", ephemeral=True, delete_after=30)
         self.logger.debug(pformat(vars(context)))
 
     async def on_command_completion(self, context: commands.Context) -> None:
