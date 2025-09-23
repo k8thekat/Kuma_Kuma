@@ -18,7 +18,7 @@ from lxml import etree
 import utils.fuzzy as fuzzy
 
 if TYPE_CHECKING:
-    from typing_extensions import Self
+    from typing import Self
 
 
 _default_timezones: list[app_commands.Choice[str]] = []

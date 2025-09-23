@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # Reminder to use `nohup ./kuma_kuma.py > /dev/null &`
-"""
-Copyright (C) 2021-2022 Katelynn Cadwallader.
+"""Copyright (C) 2021-2022 Katelynn Cadwallader.
 
 This file is part of Kuma Kuma Bear, a Discord Bot.
 
@@ -38,8 +37,9 @@ from io import BytesIO
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from pprint import pformat
+from sqlite3 import DatabaseError
 from threading import Thread, current_thread
-from typing import TYPE_CHECKING, ClassVar, Optional, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Optional, Union
 
 import aiohttp
 import asqlite
@@ -55,21 +55,33 @@ from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from sentry_sdk.integrations.asyncio import AsyncioIntegration
 
 from extensions import EXTENSIONS
-from utils.cog import KumaEmojiTable, KumaResources
-from utils.context import KumaContext
+from utils import KumaContext, KumaEmojiTable, KumaResources
 
 if TYPE_CHECKING:
     from sqlite3 import Row
 
-    from discord.ext.tasks import Loop
+    from discord.ext.tasks import LF, Generic, Loop
+
 
 DB_FILENAME = "kuma_kuma.sqlite"
 DB_PATH: str = Path(__file__).parent.joinpath(DB_FILENAME).as_posix()
 
 
 async def _get_prefix(bot: Kuma_Kuma, message: discord.Message) -> list[str]:
-    """
-    Retrieves the prefixes for the current guild.
+    """Retrieves the prefixes for the current guild.
+
+    Parameters
+    ----------
+    bot: :class:`Kuma_Kuma`
+        The Bot class.
+    message: :class:`discord.Message`
+        The discod.Message invoking the command.
+
+    Returns
+    -------
+    :class:`list[str]`
+        A list of prefixes.
+
     """
     prefixes: set[str] = set()
     if message.guild is not None:
@@ -77,7 +89,7 @@ async def _get_prefix(bot: Kuma_Kuma, message: discord.Message) -> list[str]:
 
         async with bot.pool.acquire() as conn:
             res: list[Row] = await conn.fetchall("""SELECT prefix FROM prefix WHERE serverid = ?""", guild)
-            if res is not None and len(res) >= 1:
+            if len(res) >= 1:
                 prefixes.update([entry["prefix"] for entry in res if entry["prefix"] not in prefixes])
 
     wmo_func = commands.when_mentioned_or(*prefixes)
@@ -86,13 +98,23 @@ async def _get_prefix(bot: Kuma_Kuma, message: discord.Message) -> list[str]:
 
 
 async def _get_trusted(bot: Kuma_Kuma) -> set[int]:
-    """
-    Retrieves all trusted users aka Owners.
+    """Retrieves all trusted users aka Owners.
+
+    Parameters
+    ----------
+    bot: :class:`Kuma_Kuma`
+        The Bot class.
+
+    Returns
+    -------
+    :class:`set[int]`
+        A set of Owner IDs.
+
     """
     trusted: set[int] = bot.owner_ids
     async with bot.pool.acquire() as conn:
         res: list[Row] = await conn.fetchall("""SELECT ownerid FROM owners""")
-        if res is not None and len(res) >= 1:
+        if len(res) >= 1:
             trusted.update([entry["ownerid"] for entry in res])
     return trusted
 
@@ -112,8 +134,7 @@ CREATE TABLE IF NOT EXISTS owners (
 
 
 class LogHandler:
-    """
-    Discord Multi-line code block formats:
+    """Discord Multi-line code block formats:
     - https://github.com/highlightjs/highlight.js/blob/main/SUPPORTED_LANGUAGES.md
 
     """
@@ -162,8 +183,7 @@ class LogHandler:
 
             return data[-1900:]
 
-        else:
-            raise FileNotFoundError("The most recent log file is not present. | path: %s", self.cur_log.resolve())
+        raise FileNotFoundError("The most recent log file is not present. | path: %s", self.cur_log.resolve())
 
     async def upload_log(
         self,
@@ -184,7 +204,6 @@ class LogHandler:
         self,
     ) -> None:
         """Uploads the most recent log file to a webhook."""
-
         if not self.cur_log.exists():
             raise FileNotFoundError("The most recent log file is not present. | path: %s", self.cur_log.resolve())
 
@@ -237,7 +256,7 @@ class ProxyObject(discord.Object):
 
 
 class KumaCommandTree(app_commands.CommandTree):
-    """This handles any Application Commands"""
+    """Handles any Application Commands."""
 
     client: Kuma_Kuma  # type: ignore
     _mention_app_commands: dict[int | None, list[app_commands.AppCommand]]
@@ -261,6 +280,7 @@ class KumaCommandTree(app_commands.CommandTree):
         guild: Optional[discord.abc.Snowflake] = None,
     ) -> Optional[str]:
         """Retrieves the mention of an AppCommand given a specific command name, and optionally, a guild.
+
         Parameters
         ----------
         name: Union[:class:`app_commands.Command`, :class:`app_commands.Group`, str]
@@ -269,8 +289,8 @@ class KumaCommandTree(app_commands.CommandTree):
             The scope (guild) from which to retrieve the commands from. If None is given or not passed,
             only the global scope will be searched, however the global scope will also be searched if
             a guild is passed.
-        """
 
+        """
         check_global = self.fallback_to_global is True or guild is not None
 
         if isinstance(command, str):
@@ -316,14 +336,14 @@ class KumaCommandTree(app_commands.CommandTree):
         interaction: Interaction,
         error: app_commands.AppCommandError,
     ) -> None:
-        assert interaction.command is not None  # typechecking # disable assertions
+        assert interaction.command is not None  # noqa: S101 # typechecking # disable assertions
         self.client.logger.exception("Exception occurred in the CommandTree:\n%s", exc_info=error)
 
         e = discord.Embed(title="Command Error", colour=0xA32952)
         e.add_field(name="Command", value=(interaction.command and interaction.command.name) or "No command found.")
         e.add_field(name="Author", value=interaction.user, inline=False)
         channel = interaction.channel
-        assert channel  # always there
+        assert channel  # noqa: S101 # always there
         guild = interaction.guild
         channel_name: str = "In DMs" if isinstance(channel, (discord.DMChannel, discord.PartialMessageable)) else channel.name  # type: ignore - for some reason it thinks channel is None; despite the assertion.
 
@@ -335,7 +355,7 @@ class KumaCommandTree(app_commands.CommandTree):
         trace: list[str] = traceback.format_exception(exc_type, exc, tb)
         clean: str = "".join(trace)
         if len(clean) >= 2000:
-            # todo - mystbin login info? possibly generate a password for these?
+            # TODO - mystbin login info? possibly generate a password for these?
             paste: mystbin.Paste = await self.client.loghandler.create_paste(content=clean, session=self.client.session)
             e.description = f"Error was too long to send in a codeblock, so I have pasted it [here]({paste.url})."
         else:
@@ -346,7 +366,7 @@ class KumaCommandTree(app_commands.CommandTree):
         await self.client.owner.send(embed=e)
 
 
-class Kuma_Kuma(commands.Bot):
+class Kuma_Kuma(commands.Bot):  # noqa: N801
     logger: logging.Logger = logging.getLogger(__name__)
     _app_id = 1053576011935129640
     _prefixes: ClassVar[set[str]] = set()
@@ -356,8 +376,7 @@ class Kuma_Kuma(commands.Bot):
     start_time: float = time.time()
     pool: asqlite.Pool
     session: aiohttp.ClientSession
-    _loops: list[Loop]
-
+    _loops: list[Loop[Any]]
     # These are duplicated and located inside any "Cog" class that inherits "Kuma_Cog"
     emoji_table: KumaEmojiTable = KumaEmojiTable()
     resources: KumaResources = KumaResources()
@@ -389,13 +408,11 @@ class Kuma_Kuma(commands.Bot):
 
     @property
     def local_ini(self) -> Path:
-        """
-        Path directly to the local.ini file.
-        """
+        """Path directly to the local.ini file."""
         return Path(__file__).parent.joinpath("local.ini")
 
     @property
-    def task_loops(self) -> list[Loop]:
+    def task_loops(self) -> list[Loop[Any]]:
         return self._loops
 
     async def setup_hook(self) -> None:
@@ -406,9 +423,10 @@ class Kuma_Kuma(commands.Bot):
                 await conn.execute(PREFIX_SETUP_SQL)
                 await conn.execute(OWNER_SETUP_SQL)
             self.owner_ids = await _get_trusted(bot=self)  # type: ignore - As long as it's a set of Ints it's fine.
-        except Exception as e:
-            self.logger.error("We encountered an error executing %s", __name__ + "setup_hook", exc_info=e)
-            raise ConnectionError("Unable to connect to the database.")
+        except DatabaseError:
+            self.logger.exception("<%s.setup_hook()> | Encountered an error.", __class__.__name__)
+            msg = "Unable to connect to the database."
+            raise DatabaseError(msg)  # noqa: B904
 
     async def on_ready(self) -> None:
         self.logger.name = "Kuma Kuma"
@@ -424,7 +442,8 @@ class Kuma_Kuma(commands.Bot):
         await super().on_message(message)
 
     async def on_command(self, context: KumaContext) -> None:
-        self.logger.info("%s used %s", context.author.name, context.command)
+        cog_name = "N/A" if context.command is None else context.command.cog_name
+        self.logger.info("%s used %s->%s", context.author.name, cog_name, context.command)
 
     async def on_command_error(self, context: KumaContext, error: commands.CommandError) -> None:
         if context.command is not None:
@@ -436,32 +455,41 @@ class Kuma_Kuma(commands.Bot):
                     delete_after=30,
                 )
                 return
-            elif isinstance(error, commands.TooManyArguments):
+            if isinstance(error, commands.TooManyArguments):
                 await context.send(
-                    content=f"You called the `{context.command.name}` command with too many arguments.", ephemeral=True, delete_after=30
-                )
-                return
-            elif isinstance(error, commands.MissingRequiredArgument):
-                await context.send(
-                    content=f"You called `{context.command.name}` command without the required arguments", ephemeral=True, delete_after=30
-                )
-                return
-            else:
-                await context.send(
-                    content=f"We encountered an error executing the command {context.command.name}.",
+                    content=f"You called the `{context.command.name}` command with too many arguments.",
                     ephemeral=True,
                     delete_after=30,
                 )
-                self.logger.debug(pformat(vars(context.command)))
                 return
+            if isinstance(error, commands.MissingRequiredArgument):
+                await context.send(
+                    content=f"You called `{context.command.name}` command without the required arguments",
+                    ephemeral=True,
+                    delete_after=30,
+                )
+                return
+            await context.send(
+                content=f"We encountered an error executing the command {context.command.name}.",
+                ephemeral=True,
+                delete_after=30,
+            )
+            self.logger.debug(pformat(vars(context.command)))
+            return
 
-        self.logger.error("We encountered an error executing a command. | Guild: %s | Error: %s", context.guild, error)
+        self.logger.error(
+            "We encountered an error executing a command. | Guild: %s | Type/Error: <%s>%s",
+            context.guild,
+            type(error),
+            error,
+        )
         await context.send(content="We encountered an error executing the command.", ephemeral=True, delete_after=30)
         self.logger.debug(pformat(vars(context)))
 
     async def on_command_completion(self, context: commands.Context) -> None:
         if (
-            context.message.content.startswith(tuple(self._prefixes)) and context.message.channel.permissions_for(context.me).manage_messages  # type: ignore
+            context.message.content.startswith(tuple(self._prefixes))
+            and context.message.channel.permissions_for(context.me).manage_messages  # type: ignore
         ):
             try:
                 await context.message.delete()
@@ -474,7 +502,8 @@ class Kuma_Kuma(commands.Bot):
     async def on_reaction_add(self, reaction: discord.Reaction, user: Union[discord.Member, discord.User]) -> None:
         """Called when a message has a reaction added to it. Similar to `on_message_edit()`,
         if the message is not found in the internal message cache,
-        then this event will not be called. Consider using `on_raw_reaction_add()` instead."""
+        then this event will not be called. Consider using `on_raw_reaction_add()` instead.
+        """
         if isinstance(reaction.emoji, str):
             self.logger.info(
                 "Reaction.Emoji Used: %s Unicode: %s by %s",
@@ -492,7 +521,13 @@ class Kuma_Kuma(commands.Bot):
                 reaction.emoji.name,
             )
 
-    async def get_context(self, origin: Union[discord.Interaction, discord.Message], /, *, cls: type[KumaContext] = KumaContext) -> KumaContext:
+    async def get_context(
+        self,
+        origin: Union[discord.Interaction, discord.Message],
+        /,
+        *,
+        cls: type[KumaContext] = KumaContext,
+    ) -> KumaContext:
         return await super().get_context(origin, cls=cls)
 
     async def start(self) -> None:
@@ -515,9 +550,7 @@ class KumaConfig:
 
 
 def ini_load() -> KumaConfig:
-    """
-    Parse my local ini file
-    """
+    """Parse my local ini file"""
     logger = logging.getLogger()
     _setting_file: Path = Path("./local.ini")
     if _setting_file.is_file():
@@ -549,7 +582,7 @@ async def main(local_dev: bool = False) -> None:
             config=config,
             loghandler=LogHandler(sentry=config.sentry_io, webhook_url=config.logging_webhook, local_dev=local_dev),
         ) as kuma,
-        aiohttp.ClientSession() as session,  # todo - I can make a json serializer if needed but not needed (per Umbra)
+        aiohttp.ClientSession() as session,  # TODO - I can make a json serializer if needed but not needed (per Umbra)
         asqlite.create_pool(database=DB_PATH) as pool,
     ):
         kuma.pool = pool

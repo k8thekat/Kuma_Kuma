@@ -1,3 +1,23 @@
+"""Copyright (C) 2021-2025 Katelynn Cadwallader.
+
+This file is part of Kuma Kuma.
+
+Kuma Kuma is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3, or (at your option)
+any later version.
+
+Kuma Kuma is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Kuma Kuma; see the file COPYING.  If not, write to the Free
+Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA
+02110-1301, USA.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, TypeVar
@@ -11,6 +31,9 @@ if TYPE_CHECKING:
     from kuma_kuma import Kuma_Kuma
 
 T = TypeVar("T")
+
+__all__ = ("KumaContext", "KumaGuildContext")
+
 
 # class DisambiguatorView(discord.ui.View, Generic[T]):
 #     message: discord.Message
@@ -56,6 +79,14 @@ class KumaContext(commands.Context["Kuma_Kuma"]):
 
     @property
     def session(self) -> ClientSession:
+        """Global bot Session access.
+
+        Returns
+        -------
+        :class:`ClientSession`
+            The bot :class:`aiohttp.ClientSession`.
+
+        """
         return self.bot.session
 
     # async def disambiguate(self, matches: list[T], entry: Callable[[T], Any], *, ephemeral: bool = False) -> T:
@@ -77,7 +108,7 @@ class KumaContext(commands.Context["Kuma_Kuma"]):
 
 
 class KumaGuildContext(KumaContext):
-    author: discord.Member  # type: ignore
-    guild: discord.Guild  # type: ignore
+    author: discord.Member  # pyright: ignore[reportIncompatibleVariableOverride]
+    guild: discord.Guild  # pyright: ignore[reportIncompatibleVariableOverride]
     # channel: Union[discord.VoiceChannel, discord.TextChannel, discord.Thread]
-    me: discord.Member  # type: ignore
+    me: discord.Member  # pyright: ignore[reportIncompatibleVariableOverride]
