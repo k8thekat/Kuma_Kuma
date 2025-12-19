@@ -18,15 +18,23 @@ Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA
 02110-1301, USA.
 """
 
-from typing import Self
+from typing import Optional, Self, Unpack
 
 from discord import Embed
+from discord.ext.commands import Cog
+
+from ._types import EmbedParams
+from .cog import KumaCog
 
 __all__ = ("KumaEmbed",)
 
-
 class KumaEmbed(Embed):
-    def add_blank_field(self, *, inline: bool = True) -> Self:
+    cog: KumaCog
+    def __init__(self, *, cog: KumaCog, **kwargs: Unpack[EmbedParams]) -> None:
+        self.cog = cog
+        super().__init__(**kwargs)
+
+    def add_blank_field(self, *, index: Optional[int] = -1, inline: bool = False) -> Self:
         """Adds a blank field to the embed object.
 
         This function returns the class instance to allow for fluent-style
@@ -34,19 +42,26 @@ class KumaEmbed(Embed):
 
         Parameters
         ----------
-        inline: :class:`bool`
-            Whether the field should be displayed inline.
+        inline: :class:`bool`, optional
+            Whether the field should be displayed inline, default is False
+        index: :class:`Optional[int]`, optional
+            To insert the field at a specific index, typically at the end.
+            - If `None` will insert the field via `Self.add_field()`.
 
         """
-        field = {
-            "inline": inline,
-            "name": "\u200b",
-            "value": "\u200b",
-        }
+        if index is None:
+            self.add_field(name="\u200b", value="\u200b", inline=inline)
+            return self
 
-        try:
-            self._fields.append(field)
-        except AttributeError:
-            self._fields = [field]
+        self.insert_field_at(index=index, name="\u200b", value="\u200b", inline=inline)
+        return self
 
+    def add_seperator(self, *, index: Optional[int] = None, inline:bool = False) -> Self:
+        """..."""
+        if index is None:
+            self.add_field(name="_________________________", value="test", inline=inline)
+            self.add_field(name=self.cog.unicode.double_vertical, value=self.cog.unicode.double_vertical, inline=inline)
+            return self
+
+        self.insert_field_at(name="=========================", value="\u200b", index=index, inline=inline)
         return self

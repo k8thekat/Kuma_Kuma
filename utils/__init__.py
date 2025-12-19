@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING
 from .cog import *
 from .context import *
 from .embeds import *
+from .ui import *
 
 if TYPE_CHECKING:
     from ._types import *

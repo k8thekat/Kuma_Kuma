@@ -27,6 +27,7 @@ from discord.ext import commands
 if TYPE_CHECKING:
     import discord
     from aiohttp import ClientSession
+    from aiohttp_client_cache.session import CachedSession
 
     from kuma_kuma import Kuma_Kuma
 
@@ -78,13 +79,13 @@ class KumaContext(commands.Context["Kuma_Kuma"]):
     bot: Kuma_Kuma
 
     @property
-    def session(self) -> ClientSession:
+    def session(self) -> CachedSession:
         """Global bot Session access.
 
         Returns
         -------
-        :class:`ClientSession`
-            The bot :class:`aiohttp.ClientSession`.
+        :class:`CachedSession`
+            The bot :class:`CachedSession`.
 
         """
         return self.bot.session
@@ -112,3 +113,4 @@ class KumaGuildContext(KumaContext):
     guild: discord.Guild  # pyright: ignore[reportIncompatibleVariableOverride]
     # channel: Union[discord.VoiceChannel, discord.TextChannel, discord.Thread]
     me: discord.Member  # pyright: ignore[reportIncompatibleVariableOverride]
+    channel: discord.VoiceChannel | discord.TextChannel | discord.Thread  # pyright: ignore[reportIncompatibleVariableOverride]
