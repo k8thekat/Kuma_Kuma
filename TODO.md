@@ -2,9 +2,7 @@
 - Add Helper replies to `support-forums` or any forum.
 - Online Member Count for Discord Guild via locked channel and edit channel name to current count. Use emojis for channel names.
 - Work on readme for cogs/etc.
-- Make a unicode class library for easier usage/access throughout bot code.
 - Double check sqlite connection pool and or other sqlite connections.
-
 
 ## Known Bugs:
 - 
@@ -28,8 +26,6 @@
     - Add the image as an attachment.
 
 **Sticker Yoink**
-- Add an Emoji Yoinker?
-    - Support animated emojis?
 - App Emojis?
     - https://discordpy.readthedocs.io/en/stable/ext/commands/api.html?highlight=get_context#discord.ext.commands.Bot.create_application_emoji
 
@@ -60,8 +56,7 @@
 
 - Convert saved gifs/video into animated Emojis. (Downloads folder)
 
-12/18/2025 08:43:35 PM [Kuma Kuma Bear] [ERROR]  We encountered an error during a request to GarlandTools in generic http request. Current URL: 'https://www.garlandtools.org/files/icons/item/56348.png' | Status Code: 404
-12/18/2025 08:43:35 PM [Kuma Kuma Bear] [WARNING]  <Item.get_icon> | Failed to get GarlandTools Icon data. | Item: 46577
+### ISSUES:
 
 ### Item Embed
 - See about getting more Vendor information (Map/coords if possible)
@@ -70,7 +65,7 @@
 
 ### Recipe Embed
 - ISSUE: Crafting Cost button not resetting when Changing Job.
-- Add Current Marketboard lowest price when doing `get_crafting_cost` on an Recipe.
+
 - Show Crafting Ingredients breakdown entirely
     - Possibly show first way to obtain~
 - Add Recipes related to an Ingredient via Button?

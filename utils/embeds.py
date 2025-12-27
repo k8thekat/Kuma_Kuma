@@ -32,7 +32,9 @@ class KumaEmbed(Embed):
     cog: KumaCog
     def __init__(self, *, cog: KumaCog, **kwargs: Unpack[EmbedParams]) -> None:
         self.cog = cog
-        super().__init__(**kwargs)
+        if kwargs.get("author") is not None:
+            kwargs.pop("author")
+        super().__init__(**kwargs) # pyright: ignore[reportCallIssue] # We pop the author key earlier.
 
     def add_blank_field(self, *, index: Optional[int] = -1, inline: bool = False) -> Self:
         """Adds a blank field to the embed object.

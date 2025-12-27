@@ -476,7 +476,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
 
     async def on_command(self, context: KumaContext) -> None:
         cog_name = "N/A" if context.command is None else context.command.cog_name
-        LOGGER.info("%s used %s->%s", context.author.name, cog_name, context.command)
+        LOGGER.info("%s used %s -> %s", context.author.name, cog_name, context.command)
         # Deletes the command invocation message.
         try:
             if context.cog.__class__.__name__ == "Repl":
