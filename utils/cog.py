@@ -23,15 +23,16 @@ from __future__ import annotations
 import datetime
 import io
 import logging
+from enum import StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, Literal, Optional, Union
+from typing import TYPE_CHECKING, ClassVar, Literal, Optional, Union, Unpack
 
 import discord
 from discord.ext import commands
 from lemminflect import getInflection  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
 
 if TYPE_CHECKING:
-    from logging import Logger
+    from aiohttp_client_cache.session import _ExpandedRequestOptions as AioHTTPRequestOptions
 
     from kuma_kuma import Kuma_Kuma
 
@@ -39,7 +40,46 @@ if TYPE_CHECKING:
 
 __all__ = ("FFXIVResources", "KumaCog", "KumaEmojiTable", "KumaResources")
 
-LOGGER = logging.getLogger()
+LOGGER = logging.getLogger(__name__)
+
+
+class PennPOS(StrEnum):
+    CC = "CC"  # Coordinating conjunction (and, but, or)
+    CD = "CD"  # Cardinal number (1, third)
+    DT = "DT"  # Determiner (the, a, some)
+    EX = "EX"  # Existential "there" (there is)
+    FW = "FW"  # Foreign word
+    IN = "IN"  # Preposition or subordinating conjunction (in, of, like, although)
+    JJ = "JJ"  # Adjective (big, fast)
+    JJR = "JJR"  # Adjective, comparative (bigger, faster)
+    JJS = "JJS"  # Adjective, superlative (biggest, fastest)
+    LS = "LS"  # List item marker (1., 2., A., B.)
+    MD = "MD"  # Modal (could, will, would, should)
+    NN = "NN"  # Noun, singular or mass (dog, music)
+    NNS = "NNS"  # Noun, plural (dogs, tables)
+    NNP = "NNP"  # Proper noun, singular (London, John)
+    NNPS = "NNPS"  # Proper noun, plural (Vikings, Smiths)
+    PDT = "PDT"  # Predeterminer (all, both, half)
+    POS = "POS"  # Possessive ending ('s)
+    PRP = "PRP"  # Personal pronoun (I, he, she, they)
+    PRP_POSS = "PRP$"  # Possessive pronoun (my, his, her, their)
+    RB = "RB"  # Adverb (quickly, never)
+    RBR = "RBR"  # Adverb, comparative (faster, better)
+    RBS = "RBS"  # Adverb, superlative (fastest, best)
+    RP = "RP"  # Particle (up, off, out — as in "give up")
+    SYM = "SYM"  # Symbol (%, &, +, =)
+    TO = "TO"  # "to" (as infinitive marker or preposition)
+    UH = "UH"  # Interjection (uh, well, yes, oops)
+    VB = "VB"  # Verb, base form (run, eat)
+    VBD = "VBD"  # Verb, past tense (ran, ate)
+    VBG = "VBG"  # Verb, gerund or present participle (running, eating)
+    VBN = "VBN"  # Verb, past participle (run, eaten)
+    VBP = "VBP"  # Verb, non-3rd person singular present (run, eat)
+    VBZ = "VBZ"  # Verb, 3rd person singular present (runs, eats)
+    WDT = "WDT"  # Wh-determiner (which, that, whatever)
+    WP = "WP"  # Wh-pronoun (who, what)
+    WP_POSS = "WP$"  # Possessive wh-pronoun (whose)
+    WRB = "WRB"  # Wh-adverb (where, when, why, how)
 
 
 class UnicodeTable:
@@ -76,6 +116,8 @@ class KumaEmojiTable:
     kuma_wow = "<:kuma_wow:1337130238878154893>"
     kuma_pout = "<:kuma_pout:1337133347163345019>"
     kuma_head_clench = "<:kuma_head_clench:1337133349612814398>"
+
+    # inbox_tray: \U0001f4e5 :inbox_tray:
 
     @staticmethod
     def to_inline_emoji(emoji: Union[str, int]) -> str | None:
@@ -125,9 +167,9 @@ class KumaEmojiTable:
 
         for key, value in KumaEmojiTable.__dict__.items():
             if isinstance(emoji, str) and emoji == key:
-                return f"<:{key}:{value}>"
+                return value
             if isinstance(emoji, int) and emoji == value:
-                return f"<:{key}:{value}>"
+                return value
         msg = "The Emoji provided does not exist. | %s"
         raise LookupError(msg, emoji)
 
@@ -267,7 +309,7 @@ class KumaCog(commands.Cog):
             time = datetime.datetime.now(tz=datetime.UTC)
         return f"<t:{int(time.timestamp())}:{style}>"
 
-    def string_inflection(self, word: str, tag: str = "VBD") -> str:
+    def string_inflection(self, word: str, tag: PennPOS = PennPOS.VBD) -> str:
         """Uses Lemminflection to change the inflection of the passed in word depending on the tag provided.
 
         - By default it uses `Verb, past tense` aka `VBD`.
@@ -276,8 +318,8 @@ class KumaCog(commands.Cog):
         ----------
         word: :class:`str`
             The str to inflect upon.
-        tag: :class:`str`, optional
-            The Penn TreeBank Tag, by default "VBD".
+        tag: :class:`PennPOS`, optional
+            The Penn TreeBank Tag, by default "PennPOS.VBD".
             - https://www.ling.upenn.edu/courses/Fall_2003/ling001/penn_treebank_pos.html
 
         Returns
@@ -291,7 +333,24 @@ class KumaCog(commands.Cog):
             return results[0]  # pyright: ignore[reportUnknownVariableType]
         return word
 
+    async def get_request(self,*, url: str, **request_params: Unpack[AioHTTPRequestOptions])-> bytes | None:
+        async with self.bot.session.get(url=url, **request_params) as session:
+            if session.status >= 200 and session.status < 300:
+                try:
+                    return await session.read()
+                except Exception as e:
+                    LOGGER.exception(
+                        "<%s.%s> | Encountered an exception handling the response. | URL: %s",
+                        __class__.__name__,
+                        "get_request",
+                        url,
+                        exc_info=e,
+                    )
+                    raise RuntimeError from e
+        return None
 
+
+# region --- Moogle Intuition / FFXIV
 class MooglesIntuitionEmojis:
     """A collection of Application Emojis for Moogles Intuition Module."""
 
@@ -366,6 +425,8 @@ class MooglesIntuitionEmojis:
     "Miner and Botanisty icons in an X pattern - Application Emoji"
     gathering_log_icon = "<:gathering_log_icon:1442268118230765628>"
     "The Gathering Log icon from in game UI - Application Emoji"
+    garlandtools_icon = "<:garlandtoolsicon:1466429637222600952>"
+    "The Garland Tools website Icon."
     gear_icon = "<:gear_icon:1441607830493987009>"
     "Gear/Settings style Icon with grey background  - Application Emoji"
     gil = "<:gil:1441468514052608000>"
@@ -432,6 +493,8 @@ class MooglesIntuitionEmojis:
     "Stormblood Expansion - Application Emoji"
     shbicon = "<:shbicon:1441468532389838978>"
     "Shadowbringers Expansion - Application Emoji"
+    teamcraft_icon = "<:teamcrafticon:1466431486222663919>"
+    "The Teamcraft website Icon."
     tales_of_adventure = "<:tales_of_adventure:1442312168534966322>"
     "A FFXIV Colored book, "
     treasurehunt = "<:treasurehunt:1441467786445586472>"
@@ -440,12 +503,16 @@ class MooglesIntuitionEmojis:
     "Triple Hook Fisher action Icon - Application Emoji"
     upload_icon = "<:upload_icon:1441485698963210392>"
     "Upload Icon - Application Emoji"
+    universalis_icon = "<:universalisicon:1466429635939008778>"
+    "The Universalis website Icon"
     vendor_icon = "<:vendor_icon:1441832190819303505>"
     "Vendor Icon from the map UI - Application Emoji"
     world_visit = "<:world_visit:1441637598979297461>"
     "Visit another World in game Icon - Application Emoji"
     wvr_icon = "<:wvr_icon:1441485717707685938>"
     "Weaver Job - Application Emoji."
+    xiv_wiki_icon = "<:xivwikiicon:1466431487451726026>"
+    "The XIV wiki Icon"
 
     @classmethod
     def get_emoji(cls, name: str) -> Optional[str]:

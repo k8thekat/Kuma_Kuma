@@ -26,7 +26,7 @@
     - Add the image as an attachment.
 
 **Sticker Yoink**
-- App Emojis?
+- App Emojis? - Add support for making App Emoji's.
     - https://discordpy.readthedocs.io/en/stable/ext/commands/api.html?highlight=get_context#discord.ext.commands.Bot.create_application_emoji
 
 **Gatekeeper**: 
@@ -36,20 +36,18 @@
 - *DONE* - Start, Stop and Restart of any server.
 - Take Announcements channel that @role and pass those into the Server Console for each server to notify players.
 - Notification when server is online. Server thread/WARN: Dedicated server took 88.557 seconds to load
+- Fixed Server list updating in realtime.
+    - Fix logger prints when updating "available Instances" (It appears ~ 4 times)
 
 
 **FFXIV**:
 - Store a Users inventory via `Item.id` and `Item.quantity`
     - Create a to_dict() function for an Inventory Item.
-
+- Switch to V2 COMPs -> https://gist.github.com/pythonmcpi/83b95f6e86a8155c07d4ff924967b325
 <!-- - Fix `on_timeout` error for BaseView. -->
 
 - Change most button styles to secondary
-    
-- Currency Spender
-    - Add a notif when it's done and give the person feedback while it parses data.
-    - Vendor purchase location (if applicable)
-    - Add support for World Selection (Use FFXIV User Datacenter?)
+
 
 - ConsoleGamesWiki parsing via url searching.
     - Useful URL - https://ffxiv.consolegameswiki.com/mediawiki/index.php?search=Magitek&title=Special%3ASearch&profile=default&fulltext=1
@@ -58,22 +56,14 @@
 
 ### ISSUES:
 
-### Item Embed
-- See about getting more Vendor information (Map/coords if possible)
-    - Or list additional tradeshop locations via a button
-
-
-### Recipe Embed
-- ISSUE: Crafting Cost button not resetting when Changing Job.
+### Item/Recipe
 
 - Show Crafting Ingredients breakdown entirely
     - Possibly show first way to obtain~
 - Add Recipes related to an Ingredient via Button?
 
-## FF14 Angler Fishing
-- Add Cords to Location Name (Possibly URL to site?)
-- Any additional information:
-    - If it requires mooching/etc.
+### SpearFishing Embed
+- Need to create one...
 
 ### Features:
 - Timers for Housing, Journal, etc...
@@ -82,8 +72,6 @@
 - Add Inventory functionality
 - Add Collect list for glamour/etc.?
 - Store a users recent item lookups? (3 - 4?)
-
-
 
 
 **Moderator**:

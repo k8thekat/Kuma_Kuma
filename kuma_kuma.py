@@ -344,39 +344,39 @@ class KumaCommandTree(app_commands.CommandTree):
 
         return f"</{_command.qualified_name}:{app_command_found.id}>"
 
-    async def on_error(
-        self,
-        interaction: Interaction,
-        error: app_commands.AppCommandError,
-    ) -> None:
-        assert interaction.command is not None  # noqa: S101 # typechecking # disable assertions
-        LOGGER.exception("Exception occurred in the CommandTree:\n%s", exc_info=error)
+    # async def on_error(
+    #     self,
+    #     interaction: Interaction,
+    #     error: app_commands.AppCommandError,
+    # ) -> None:
+    #     assert interaction.command is not None  # typechecking # disable assertions
+    #     LOGGER.exception("Exception occurred in the CommandTree:\n%s", exc_info=error)
 
-        e = discord.Embed(title="Command Error", colour=0xA32952)
-        e.add_field(name="Command", value=(interaction.command and interaction.command.name) or "No command found.")
-        e.add_field(name="Author", value=interaction.user, inline=False)
-        channel = interaction.channel
-        assert channel  # noqa: S101 # always there
-        guild = interaction.guild
-        channel_name: str = "In DMs" if isinstance(channel, (discord.DMChannel, discord.PartialMessageable)) else channel.name  # type: ignore - for some reason it thinks channel is None; despite the assertion.
+    #     e = discord.Embed(title="Command Error", colour=0xA32952)
+    #     e.add_field(name="Command", value=(interaction.command and interaction.command.name) or "No command found.")
+    #     e.add_field(name="Author", value=interaction.user, inline=False)
+    #     channel = interaction.channel
+    #     assert channel  # always there
+    #     guild = interaction.guild
+    #     channel_name: str = "In DMs" if isinstance(channel, (discord.DMChannel, discord.PartialMessageable)) else channel.name  # type: ignore - for some reason it thinks channel is None; despite the assertion.
 
-        location_fmt: str = f"Channel: {channel_name} ({channel.id})"
-        if guild:
-            location_fmt += f"\nGuild: {guild.name} ({guild.id})"
-        e.add_field(name="Location", value=location_fmt, inline=True)
-        (exc_type, exc, tb) = type(error), error, error.__traceback__
-        trace: list[str] = traceback.format_exception(exc_type, exc, tb)
-        clean: str = "".join(trace)
-        if len(clean) >= 2000:
-            # TODO - mystbin login info? possibly generate a password for these?
-            paste: mystbin.Paste = await self.client.loghandler.create_paste(content=clean, session=self.client.session)
-            e.description = f"Error was too long to send in a codeblock, so I have pasted it [here]({paste.url})."
-        else:
-            e.description = f"```py\n{clean}\n```"
+    #     location_fmt: str = f"Channel: {channel_name} ({channel.id})"
+    #     if guild:
+    #         location_fmt += f"\nGuild: {guild.name} ({guild.id})"
+    #     e.add_field(name="Location", value=location_fmt, inline=True)
+    #     (exc_type, exc, tb) = type(error), error, error.__traceback__
+    #     trace: list[str] = traceback.format_exception(exc_type, exc, tb)
+    #     clean: str = "".join(trace)
+    #     if len(clean) >= 2000:
+    #         # TODO - mystbin login info? possibly generate a password for these?
+    #         paste: mystbin.Paste = await self.client.loghandler.create_paste(content=clean, session=self.client.session)
+    #         e.description = f"Error was too long to send in a codeblock, so I have pasted it [here]({paste.url})."
+    #     else:
+    #         e.description = f"```py\n{clean}\n```"
 
-        e.timestamp = datetime.datetime.now(tz=datetime.UTC)
-        await self.client.logging_webhook.send(embed=e)
-        await self.client.owner.send(embed=e)
+    #     e.timestamp = datetime.datetime.now(tz=datetime.UTC)
+    #     await self.client.logging_webhook.send(embed=e)
+    #     await self.client.owner.send(embed=e)
 
 
 class Kuma_Kuma(commands.Bot):  # noqa: N801
@@ -386,7 +386,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
     owner_ids: set[int]  # type: ignore - Collections are immutable --
     message_timeout = 120
     start_time: float = time.time()
-    session: CachedSession
+    _session: CachedSession
     _loops: list[Loop[Any]]
     # These are duplicated and located inside any "Cog" class that inherits "Kuma_Cog"
     emoji_table: KumaEmojiTable = KumaEmojiTable()
@@ -443,6 +443,11 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
     def app_emojis(self) -> list[discord.Emoji]:
         return self._app_emojis
 
+    @property
+    def session(self) -> CachedSession:
+        return self._session
+
+
     async def setup_hook(self) -> None:
         self.bot_app_info: discord.AppInfo = await self.application_info()
         self.mb_client = mystbin.Client(session=self.session)
@@ -474,13 +479,17 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
 
         await super().on_message(message)
 
+    async def on_connect(self) -> None:
+        pass
+
     async def on_command(self, context: KumaContext) -> None:
         cog_name = "N/A" if context.command is None else context.command.cog_name
         LOGGER.info("%s used %s -> %s", context.author.name, cog_name, context.command)
         # Deletes the command invocation message.
         try:
+            # This should prevent messages related to
             if context.cog.__class__.__name__ == "Repl":
-                pass
+                return
 
             await context.message.delete(delay=self.message_timeout)
         except (discord.errors.Forbidden, discord.errors.HTTPException, discord.NotFound):
@@ -505,7 +514,14 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
                 return
             if isinstance(error, commands.MissingRequiredArgument):
                 await context.send(
-                    content=f"You called `{context.command.name}` command without the required arguments",
+                    content=f"You called `{context.command.name}` command without the required arguments.",
+                    ephemeral=True,
+                    delete_after=30,
+                )
+                return
+            if isinstance(error, commands.errors.CommandNotFound):
+                await context.send(
+                    content=f"You called `{context.command.name}` command which does not exist.",
                     ephemeral=True,
                     delete_after=30,
                 )
@@ -519,12 +535,13 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
             return
 
         LOGGER.error(
-            "We encountered an error executing a command. | Guild: %s | Type/Error: <%s>%s",
+            "<%s.%s> | We encountered an error executing a command. | Guild: %s | Type/Error: <%s> / %s",
+            __class__.__name__, "on_command_error",
             context.guild,
             type(error),
             error,
         )
-        await context.send(content="We encountered an error executing the command.", ephemeral=True, delete_after=30)
+        await context.send(content=f"We encountered an {type(error)} executing the command.", ephemeral=True, delete_after=30)
         LOGGER.debug(pformat(vars(context)))
 
     async def on_command_completion(self, context: commands.Context) -> None:
@@ -629,8 +646,9 @@ def ini_load() -> KumaConfig:
         raise ValueError(msg)
     return _temp
 
-
-async def main(*, local_dev: bool = False) -> None:  # noqa: D103
+# TODO: Change row factory for sqlite3.Row to use a dict factory. -> https://docs.python.org/3/library/sqlite3.html#sqlite3-howto-row-factory
+# Need to test this locally to understand it first.
+async def main(*, local_dev: bool = False, log_level: int = logging.INFO) -> None:  # noqa: D103
     cur_thread: Thread = current_thread()
     cur_thread.name = "Kuma Kuma Bear"
     config: KumaConfig = ini_load()
@@ -646,12 +664,12 @@ async def main(*, local_dev: bool = False) -> None:  # noqa: D103
     async with (
         Kuma_Kuma(
             config=config,
-            loghandler=LogHandler(sentry=config.sentry_io, level=logging.INFO, webhook_url=config.logging_webhook, local_dev=local_dev),
+            loghandler=LogHandler(sentry=config.sentry_io, level=log_level, webhook_url=config.logging_webhook, local_dev=local_dev),
         ) as kuma,
         CachedSession(cache=_cache) as session,
         asqlite.create_pool(database=DB_PATH) as pool):
         kuma.pool = pool
-        kuma.session = session
+        kuma._session = session  # noqa: SLF001
         for extension in EXTENSIONS:
             await kuma.load_extension(name=extension.name)
             LOGGER.info("Loaded %sextension: %s", "module " if extension.ispkg else "", extension.name)

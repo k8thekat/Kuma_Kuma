@@ -11,6 +11,8 @@ ignore = [
     "D105", # Magic(dunder) __method__ docstring requirement.
     "D107", # Docstring on `__init__` functions.
     "ERA001", #Ignore commented out code.
+    "FBT001", # Boolean argument.
+    "FBT002", # Boolean positional argument.
     "FIX002", # Ignore TODO's telling you to "fix them".
     "F401",
     "F402",
@@ -27,6 +29,7 @@ ignore = [
     "TD002", # No "author" in TODO comments.
     "TD003", # Ignore TODO's not having a link/url to an issue.
     "TD004", # No "colon" in  TODO comments.
+    "T201", # Print found...
     "UP007",
     "UP034",
     "UP045", # Type var `Optional[X]` vs `X | None`
@@ -49,7 +52,7 @@ venvPath = "."
 venv = ".venv"
 typeCheckingMode = "standard"
 pythonVersion = "3.12"
-exclude = ["logs/**", "**/.venv/**", "**/.vscode-server/", "/usr/*"]
+exclude = ["logs/**", "**/.venv/**", "**/.vscode-server/", "/usr/*", "**/node_modules", "**/__pycache__", "**/.*"]
 include = [""]
 useLibraryCodeForTypes = true
 reportIncompatibleMethodOverride = false

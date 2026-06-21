@@ -70,19 +70,14 @@ class EmbedParams(TypedDict):
 
     Keys
     ----
-    colour: :class:`NotRequired[Optional[int | Colour]]`
-
-    color: :class:`NotRequired[Optional[int | Colour]]`
-
-    title: :class:`NotRequired[Optional[Any]]`
-
-    type: :class:`NotRequired[EmbedType]`
-
-    url: :class:`NotRequired[Optional[Any]]`
-
-    description: :class:`NotRequired[Optional[Any]]`
-
-    timestamp: :class:`NotRequired[Optional[datetime.datetime]]`
+    - colour: :class:`NotRequired[Optional[int | Colour]]`
+    - color: :class:`NotRequired[Optional[int | Colour]]`
+    - title: :class:`NotRequired[Optional[Any]]`
+    - type: :class:`NotRequired[EmbedType]`
+    - url: :class:`NotRequired[Optional[Any]]`
+    - description: :class:`NotRequired[Optional[Any]]`
+    - timestamp: :class:`NotRequired[Optional[datetime.datetime]]`
+    - author: :class:`NotRequired[Optional[str]]`
 
 
     """
