@@ -1,38 +1,38 @@
 [tool.ruff]
-target-version = "py310"
-line-length = 125
-
-[tool.ruff.lint]
-exclude = ["docs/extensions/*.py", "logs"]
-select = [
-    "A",
-    "C4",
-    "F",
-    "G",
-    "I",
-    "PTH",
-    "RUF",
-    "SIM",
-    "TC",
-    "UP",
-    "W",
-    "PERF",
-    "ANN",
-]
+target-version = "py312"
+line-length = 140
+select = ["ALL"]
 ignore = [
+    "ANN401",
+    "C901", # Function is too complex
+    "D401", # Ignore "Imperative Mood" statement for docstrings.
+    "D101", # Public class docstring requirement.
+    "D102", # Docstring on public properties.
+    "D105", # Magic(dunder) __method__ docstring requirement.
+    "D107", # Docstring on `__init__` functions.
+    "ERA001", #Ignore commented out code.
+    "FBT001", # Boolean argument.
+    "FBT002", # Boolean positional argument.
+    "FIX002", # Ignore TODO's telling you to "fix them".
     "F401",
     "F402",
     "F403",
     "F405",
+    "INP001", # Implicit namespace package, missing __init__.py
     "PERF203",
+    "PLR",
     "RUF001",
+    "RUF002", # The character U+2013 "–" could be confused with the ASCII character U+002d "-", which is more common in source code.
     "RUF009",
-    "SIM105",
-    "UP034",
-    "UP038",
-    "UP007",
-    "ANN401",
     "RUF052", # for filtering "local dummy variable is accessed" eg. - vars using `_`
+    "SIM105",
+    "TD002", # No "author" in TODO comments.
+    "TD003", # Ignore TODO's not having a link/url to an issue.
+    "TD004", # No "colon" in  TODO comments.
+    "T201", # Print found...
+    "UP007",
+    "UP034",
+    "UP045", # Type var `Optional[X]` vs `X | None`
 ]
 
 [tool.ruff.lint.isort]
@@ -48,8 +48,22 @@ mark-parentheses = false
 parametrize-names-type = "tuple"
 
 [tool.pyright]
-useLibraryCodeForTypes = true
+venvPath = "."
+venv = ".venv"
 typeCheckingMode = "standard"
-pythonVersion = "3.10"
+pythonVersion = "3.12"
+exclude = ["logs/**", "**/.venv/**", "**/.vscode-server/", "/usr/*", "**/node_modules", "**/__pycache__", "**/.*"]
+include = [""]
+useLibraryCodeForTypes = true
 reportIncompatibleMethodOverride = false
-exclude = ["logs/**", "**/.venv/**"]
+
+[tool.setuptools]
+packages = ["kuma_kuma"]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = { attr = "kuma_kuma.__version__" }
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # Reminder to use `nohup ./kuma_kuma.py > /dev/null &`
-"""
-Copyright (C) 2021-2022 Katelynn Cadwallader.
+"""Copyright (C) 2021-2022 Katelynn Cadwallader.
 
 This file is part of Kuma Kuma Bear, a Discord Bot.
 
@@ -34,17 +33,22 @@ import time
 import traceback
 from configparser import ConfigParser
 from datetime import timedelta
+from io import BytesIO
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from pprint import pformat
+from sqlite3 import DatabaseError
 from threading import Thread, current_thread
-from typing import TYPE_CHECKING, ClassVar, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Optional, Union
 
 import aiohttp
 import asqlite
+import colorlog
 import discord
 import mystbin
 import sentry_sdk
+from aiohttp_client_cache import SQLiteBackend
+from aiohttp_client_cache.session import CachedSession
 from discord import Intents, Interaction, app_commands
 from discord.ext import commands
 
@@ -53,26 +57,41 @@ from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from sentry_sdk.integrations.asyncio import AsyncioIntegration
 
 from extensions import EXTENSIONS
-from utils.context import KumaContext
+from utils import KumaContext, KumaEmojiTable, KumaResources
 
 if TYPE_CHECKING:
     from sqlite3 import Row
 
+    from discord.ext.tasks import LF, Generic, Loop
+
+
 DB_FILENAME = "kuma_kuma.sqlite"
 DB_PATH: str = Path(__file__).parent.joinpath(DB_FILENAME).as_posix()
-
+LOGGER: logging.Logger = logging.getLogger(__name__)
 
 async def _get_prefix(bot: Kuma_Kuma, message: discord.Message) -> list[str]:
+    """Retrieves the prefixes for the current guild.
+
+    Parameters
+    ----------
+    bot: :class:`Kuma_Kuma`
+        The Bot class.
+    message: :class:`discord.Message`
+        The discod.Message invoking the command.
+
+    Returns
+    -------
+    :class:`list[str]`
+        A list of prefixes.
+
     """
-    Retrieves the prefixes for the current guild.
-    """
-    prefixes: set[str] = bot._prefixes
+    prefixes: set[str] = set()
     if message.guild is not None:
         guild: int = message.guild.id
 
         async with bot.pool.acquire() as conn:
             res: list[Row] = await conn.fetchall("""SELECT prefix FROM prefix WHERE serverid = ?""", guild)
-            if res is not None and len(res) >= 1:
+            if len(res) >= 1:
                 prefixes.update([entry["prefix"] for entry in res if entry["prefix"] not in prefixes])
 
     wmo_func = commands.when_mentioned_or(*prefixes)
@@ -81,13 +100,23 @@ async def _get_prefix(bot: Kuma_Kuma, message: discord.Message) -> list[str]:
 
 
 async def _get_trusted(bot: Kuma_Kuma) -> set[int]:
-    """
-    Retrieves all trusted users aka Owners.
+    """Retrieves all trusted users aka Owners.
+
+    Parameters
+    ----------
+    bot: :class:`Kuma_Kuma`
+        The Bot class.
+
+    Returns
+    -------
+    :class:`set[int]`
+        A set of Owner IDs.
+
     """
     trusted: set[int] = bot.owner_ids
     async with bot.pool.acquire() as conn:
         res: list[Row] = await conn.fetchall("""SELECT ownerid FROM owners""")
-        if res is not None and len(res) >= 1:
+        if len(res) >= 1:
             trusted.update([entry["ownerid"] for entry in res])
     return trusted
 
@@ -107,9 +136,11 @@ CREATE TABLE IF NOT EXISTS owners (
 
 
 class LogHandler:
-    """
-    Discord Multi-line code block formats:
-    - https://github.com/highlightjs/highlight.js/blob/main/SUPPORTED_LANGUAGES.md
+    """Kuma Kuma logging.
+
+    .. note::
+        Discord Multi-line code block formats:
+        - https://github.com/highlightjs/highlight.js/blob/main/SUPPORTED_LANGUAGES.md
 
     """
 
@@ -118,13 +149,17 @@ class LogHandler:
     code_formats: ClassVar[list[str]] = ["excel", "nc", "ml", " nim", " ps", " prolog", "thor"]
     default_code_format: str = "ps"
 
-    def __init__(self, sentry: str, level: int = logging.INFO, webhook_url: str = "") -> None:
-        sentry_sdk.init(dsn=sentry, integrations=[AioHttpIntegration(), AsyncioIntegration()])
+    def __init__(self, *, sentry: str, level: int = logging.INFO, webhook_url: str = "", local_dev: bool = False) -> None:
+        self.logger = logging.getLogger()
+        if local_dev is False:
+            self.logger.info("Sentry SDK is Enabled -- Flag: %s", local_dev)
+            sentry_sdk.init(dsn=sentry, integrations=[AioHttpIntegration(), AsyncioIntegration()])
+        else:
+            self.logger.warning("Sentry SDK is Disabled -- Flag: %s", local_dev)
         self.webhook_url: str = webhook_url
         self.session: aiohttp.ClientSession
         self.path: Path = pathlib.Path(__file__).parent.joinpath("logs")
         self.cur_log: Path = pathlib.Path(__file__).parent.joinpath("logs/log.log")
-        self.logger = logging.getLogger()
 
         logging.basicConfig(
             level=level,
@@ -142,19 +177,20 @@ class LogHandler:
                 ),
             ],
         )
+        self.logger.setLevel(level=level)
 
     def parse_log(self) -> str:
         if self.cur_log.exists():
             try:
                 data: str = self.cur_log.read_text()
             except Exception as e:
-                self.logger.error(msg="We encountered an error executing upload_log.", exc_info=e)
-                raise ValueError("We encountered an error executing upload_log.")
+                msg = "We encountered an error executing upload_log."
+                self.logger.error(msg=msg, exc_info=e)  # noqa: TRY400
+                raise ValueError(msg) from e
 
             return data[-1900:]
-
-        else:
-            raise FileNotFoundError("The most recent log file is not present. | path: %s", self.cur_log.resolve())
+        msg = "The most recent log file is not present. | path: %s"
+        raise FileNotFoundError(msg, self.cur_log.resolve())
 
     async def upload_log(
         self,
@@ -164,20 +200,22 @@ class LogHandler:
             try:
                 data: str = self.cur_log.read_text()
             except Exception as e:
-                self.logger.error(msg="We encountered an error executing upload_log.", exc_info=e)
-                raise ValueError("We encountered an error executing upload_log.")
+                msg = "We encountered an error executing upload_log."
+                self.logger.error(msg=msg, exc_info=e)  # noqa: TRY400
+                raise ValueError(msg) from e
 
             await self.create_paste(content=data, session=self.session)
         else:
-            raise FileNotFoundError("The most recent log file is not present. | path: %s", self.cur_log.resolve())
+            msg = "The most recent log file is not present. | path: %s"
+            raise FileNotFoundError(msg, self.cur_log.resolve())
 
     async def webhook_send_log(
         self,
     ) -> None:
         """Uploads the most recent log file to a webhook."""
-
         if not self.cur_log.exists():
-            raise FileNotFoundError("The most recent log file is not present. | path: %s", self.cur_log.resolve())
+            msg = "The most recent log file is not present. | path: %s"
+            raise FileNotFoundError(msg, self.cur_log.resolve())
 
         # size in Mb - to prevent exceeding Discord file attachment limits.
         size: float = self.cur_log.stat().st_size / (1024 * 1024)
@@ -185,28 +223,41 @@ class LogHandler:
             webhook: discord.Webhook = discord.Webhook.from_url(url=self.webhook_url, session=aiohttp.ClientSession())
             await webhook.send(file=discord.File(fp=self.cur_log.resolve()))
         else:
-            raise OverflowError("The log file size is larger than Discord Webhook limit (10Mb). | size: %s", size)
+            msg = "The log file size is larger than Discord Webhook limit (10Mb). | size: %s"
+            raise OverflowError(msg, size)
 
     @staticmethod
     async def create_paste(
         *,
-        content: str | None = None,
-        files: list[tuple[str, str]] | None = None,
-        password: str | None = None,
-        expires: datetime.datetime | None = None,
-        session: aiohttp.ClientSession | None = None,
+        content: Optional[str] = None,
+        files: Optional[list[tuple[str, str]]] = None,
+        password: Optional[str] = None,
+        expires: Optional[datetime.datetime] = None,
+        session: Optional[aiohttp.ClientSession] = None,
     ) -> mystbin.Paste:
         if not content and not files:
-            raise ValueError("Either `content` or `files` must be provided.")
+            msg = "Either `content` or `files` must be provided."
+            raise ValueError(msg)
 
         if content:
             post_files: list[mystbin.File] = [mystbin.File(filename="output.py", content=content)]
         elif files:
             post_files = [mystbin.File(filename=name, content=content) for name, content in files]
         else:
-            raise ValueError("An argument for `content` or `files` must be provided.")
+            msg = "An argument for `content` or `files` must be provided."
+            raise ValueError(msg)
 
         return await mystbin.Client(session=session).create_paste(files=post_files, password=password, expires=expires)
+
+    @staticmethod
+    def dump_file(data: str | BytesIO, file_name: str) -> None:
+        if isinstance(data, BytesIO):
+            data = data.read().decode(encoding="utf-8")
+
+        with Path().joinpath(f"{file_name}.dump").open("w+") as f:
+            f.write(data)
+
+        f.close()
 
 
 class ProxyObject(discord.Object):
@@ -218,18 +269,18 @@ class ProxyObject(discord.Object):
 
 
 class KumaCommandTree(app_commands.CommandTree):
-    """This handles any Application Commands"""
+    """Handles any Application Commands."""
 
-    client: Kuma_Kuma  # type: ignore
+    client: Kuma_Kuma # pyright: ignore[reportIncompatibleVariableOverride]
     _mention_app_commands: dict[int | None, list[app_commands.AppCommand]]
 
-    async def sync(self, *, guild: discord.abc.Snowflake | None = None) -> list[app_commands.AppCommand]:
+    async def sync(self, *, guild: Optional[discord.abc.Snowflake] = None) -> list[app_commands.AppCommand]:
         """Method overwritten to store the commands."""
         ret = await super().sync(guild=guild)
         self._mention_app_commands[guild.id if guild else None] = ret
         return ret
 
-    async def fetch_commands(self, *, guild: discord.abc.Snowflake | None = None) -> list[app_commands.AppCommand]:
+    async def fetch_commands(self, *, guild: Optional[discord.abc.Snowflake] = None) -> list[app_commands.AppCommand]:
         """Method overwritten to store the commands."""
         ret = await super().fetch_commands(guild=guild)
         self._mention_app_commands[guild.id if guild else None] = ret
@@ -239,19 +290,20 @@ class KumaCommandTree(app_commands.CommandTree):
         self,
         command: app_commands.Command | app_commands.Group | str,
         *,
-        guild: discord.abc.Snowflake | None = None,
-    ) -> str | None:
+        guild: Optional[discord.abc.Snowflake] = None,
+    ) -> Optional[str]:
         """Retrieves the mention of an AppCommand given a specific command name, and optionally, a guild.
+
         Parameters
         ----------
-        name: Union[:class:`app_commands.Command`, :class:`app_commands.Group`, str]
+        command: Union[:class:`app_commands.Command`, :class:`app_commands.Group`, str]
             The command which it's mention we will attempt to retrieve.
         guild: Optional[:class:`discord.abc.Snowflake`]
             The scope (guild) from which to retrieve the commands from. If None is given or not passed,
             only the global scope will be searched, however the global scope will also be searched if
             a guild is passed.
-        """
 
+        """
         check_global = self.fallback_to_global is True or guild is not None
 
         if isinstance(command, str):
@@ -292,53 +344,54 @@ class KumaCommandTree(app_commands.CommandTree):
 
         return f"</{_command.qualified_name}:{app_command_found.id}>"
 
-    async def on_error(
-        self,
-        interaction: Interaction,
-        error: app_commands.AppCommandError,
-    ) -> None:
-        assert interaction.command is not None  # typechecking # disable assertions
-        self.client.logger.exception("Exception occurred in the CommandTree:\n%s", exc_info=error)
+    # async def on_error(
+    #     self,
+    #     interaction: Interaction,
+    #     error: app_commands.AppCommandError,
+    # ) -> None:
+    #     assert interaction.command is not None  # typechecking # disable assertions
+    #     LOGGER.exception("Exception occurred in the CommandTree:\n%s", exc_info=error)
 
-        e = discord.Embed(title="Command Error", colour=0xA32952)
-        e.add_field(name="Command", value=(interaction.command and interaction.command.name) or "No command found.")
-        e.add_field(name="Author", value=interaction.user, inline=False)
-        channel = interaction.channel
-        assert channel  # always there
-        guild = interaction.guild
-        channel_name: str = (
-            "In DMs" if isinstance(channel, (discord.DMChannel, discord.PartialMessageable)) else channel.name
-        )  # type: ignore - for some reason it thinks channel is None; despite the assertion.
+    #     e = discord.Embed(title="Command Error", colour=0xA32952)
+    #     e.add_field(name="Command", value=(interaction.command and interaction.command.name) or "No command found.")
+    #     e.add_field(name="Author", value=interaction.user, inline=False)
+    #     channel = interaction.channel
+    #     assert channel  # always there
+    #     guild = interaction.guild
+    #     channel_name: str = "In DMs" if isinstance(channel, (discord.DMChannel, discord.PartialMessageable)) else channel.name  # type: ignore - for some reason it thinks channel is None; despite the assertion.
 
-        location_fmt: str = f"Channel: {channel_name} ({channel.id})"
-        if guild:
-            location_fmt += f"\nGuild: {guild.name} ({guild.id})"
-        e.add_field(name="Location", value=location_fmt, inline=True)
-        (exc_type, exc, tb) = type(error), error, error.__traceback__
-        trace: list[str] = traceback.format_exception(exc_type, exc, tb)
-        clean: str = "".join(trace)
-        if len(clean) >= 2000:
-            # todo - mystbin login info? possibly generate a password for these?
-            paste: mystbin.Paste = await self.client.loghandler.create_paste(content=clean, session=self.client.session)
-            e.description = f"Error was too long to send in a codeblock, so I have pasted it [here]({paste.url})."
-        else:
-            e.description = f"```py\n{clean}\n```"
+    #     location_fmt: str = f"Channel: {channel_name} ({channel.id})"
+    #     if guild:
+    #         location_fmt += f"\nGuild: {guild.name} ({guild.id})"
+    #     e.add_field(name="Location", value=location_fmt, inline=True)
+    #     (exc_type, exc, tb) = type(error), error, error.__traceback__
+    #     trace: list[str] = traceback.format_exception(exc_type, exc, tb)
+    #     clean: str = "".join(trace)
+    #     if len(clean) >= 2000:
+    #         # TODO - mystbin login info? possibly generate a password for these?
+    #         paste: mystbin.Paste = await self.client.loghandler.create_paste(content=clean, session=self.client.session)
+    #         e.description = f"Error was too long to send in a codeblock, so I have pasted it [here]({paste.url})."
+    #     else:
+    #         e.description = f"```py\n{clean}\n```"
 
-        e.timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
-        await self.client.logging_webhook.send(embed=e)
-        await self.client.owner.send(embed=e)
+    #     e.timestamp = datetime.datetime.now(tz=datetime.UTC)
+    #     await self.client.logging_webhook.send(embed=e)
+    #     await self.client.owner.send(embed=e)
 
 
-class Kuma_Kuma(commands.Bot):
-    logger: logging.Logger = logging.getLogger()
+class Kuma_Kuma(commands.Bot):  # noqa: N801
     _app_id = 1053576011935129640
     _prefixes: ClassVar[set[str]] = set()
     # The owner_ids is updated via the Trust Add/Remove Command.
     owner_ids: set[int]  # type: ignore - Collections are immutable --
     message_timeout = 120
     start_time: float = time.time()
-    pool: asqlite.Pool
-    session: aiohttp.ClientSession
+    _session: CachedSession
+    _loops: list[Loop[Any]]
+    # These are duplicated and located inside any "Cog" class that inherits "Kuma_Cog"
+    emoji_table: KumaEmojiTable = KumaEmojiTable()
+    resources: KumaResources = KumaResources()
+
     if TYPE_CHECKING:
         user: discord.ClientUser
 
@@ -350,7 +403,20 @@ class Kuma_Kuma(commands.Bot):
         self.config: KumaConfig = config
         self.loghandler: LogHandler = loghandler
         self._prefixes.add("kuma")
+        self._loops = []
         super().__init__(intents=intents, command_prefix=_get_prefix, strip_after_prefix=True)
+
+        self.owner_ids = set()
+        self.owner_ids.add(144462063920611328)
+
+    @property
+    def pool(self) -> asqlite.Pool:
+        """ASQLITE Database connection pool."""
+        return self._pool
+
+    @pool.setter
+    def pool(self, value: asqlite.Pool) -> None:
+        self._pool: asqlite.Pool = value
 
     @property
     def owner(self) -> discord.User:
@@ -364,6 +430,24 @@ class Kuma_Kuma(commands.Bot):
     def uptime(self) -> timedelta:
         return timedelta(seconds=(round(time.time() - self.start_time)))
 
+    @property
+    def local_ini(self) -> Path:
+        """Path directly to the local.ini file."""
+        return Path(__file__).parent.joinpath("local.ini")
+
+    @property
+    def task_loops(self) -> list[Loop[Any]]:
+        return self._loops
+
+    @property
+    def app_emojis(self) -> list[discord.Emoji]:
+        return self._app_emojis
+
+    @property
+    def session(self) -> CachedSession:
+        return self._session
+
+
     async def setup_hook(self) -> None:
         self.bot_app_info: discord.AppInfo = await self.application_info()
         self.mb_client = mystbin.Client(session=self.session)
@@ -372,12 +456,19 @@ class Kuma_Kuma(commands.Bot):
                 await conn.execute(PREFIX_SETUP_SQL)
                 await conn.execute(OWNER_SETUP_SQL)
             self.owner_ids = await _get_trusted(bot=self)  # type: ignore - As long as it's a set of Ints it's fine.
-        except Exception as e:
-            self.logger.error("We encountered an error executing %s", __name__ + "setup_hook", exc_info=e)
-            raise ConnectionError("Unable to connect to the database.")
+        except DatabaseError:
+            LOGGER.exception("<%s.setup_hook()> | Encountered an error.", __class__.__name__)
+            msg = "Unable to connect to the database."
+            raise DatabaseError(msg)  # noqa: B904
 
     async def on_ready(self) -> None:
-        self.logger.info(msg="Kuma Kuma Bear <3")
+        LOGGER.name = "Kuma Kuma"
+        LOGGER.info(msg="Kuma Kuma Bear <3")
+        try:
+            self._app_emojis: list[discord.Emoji] = await self.fetch_application_emojis()
+        except (discord.errors.HTTPException, discord.errors.MissingApplicationID):
+            LOGGER.error("<%s.%s> | We encountered an error fetching the application emojis.", __class__.__name__, "on_ready")  # noqa: TRY400
+            self._app_emojis = []
 
     def is_me(self, message: discord.Message) -> bool:
         return message.author == self.user
@@ -388,57 +479,113 @@ class Kuma_Kuma(commands.Bot):
 
         await super().on_message(message)
 
+    async def on_connect(self) -> None:
+        pass
+
     async def on_command(self, context: KumaContext) -> None:
-        self.logger.info("%s used %s", context.author.name, context.command)
+        cog_name = "N/A" if context.command is None else context.command.cog_name
+        LOGGER.info("%s used %s -> %s", context.author.name, cog_name, context.command)
+        # Deletes the command invocation message.
+        try:
+            # This should prevent messages related to
+            if context.cog.__class__.__name__ == "Repl":
+                return
+
+            await context.message.delete(delay=self.message_timeout)
+        except (discord.errors.Forbidden, discord.errors.HTTPException, discord.NotFound):
+            pass
 
     async def on_command_error(self, context: KumaContext, error: commands.CommandError) -> None:
         if context.command is not None:
-            self.logger.error("We encountered an error executing: %s", context.command, exc_info=error)
-
-            if isinstance(error, commands.TooManyArguments):
-                await context.send(content=f"You called the {context.command.name} command with too many arguments.")
-            elif isinstance(error, commands.MissingRequiredArgument):
-                await context.send(content=f"You called {context.command.name} command without the required arguments")
-            else:
+            LOGGER.error("We encountered an error executing: %s", context.command, exc_info=error)
+            if isinstance(error, commands.errors.CommandNotFound):
                 await context.send(
-                    content=f"We encountered an error executing the command {context.command.name}.",
+                    content=f"{self.emoji_table.to_inline_emoji('kuma_crying')}I can't run the command `{context.command.name}` as it doesn't exist!",  # noqa: E501
                     ephemeral=True,
                     delete_after=30,
                 )
-                self.logger.debug(pformat(vars(context.command)))
                 return
+            if isinstance(error, commands.TooManyArguments):
+                await context.send(
+                    content=f"You called the `{context.command.name}` command with too many arguments.",
+                    ephemeral=True,
+                    delete_after=30,
+                )
+                return
+            if isinstance(error, commands.MissingRequiredArgument):
+                await context.send(
+                    content=f"You called `{context.command.name}` command without the required arguments.",
+                    ephemeral=True,
+                    delete_after=30,
+                )
+                return
+            if isinstance(error, commands.errors.CommandNotFound):
+                await context.send(
+                    content=f"You called `{context.command.name}` command which does not exist.",
+                    ephemeral=True,
+                    delete_after=30,
+                )
+                return
+            await context.send(
+                content=f"We encountered an error executing the command {context.command.name}.",
+                ephemeral=True,
+                delete_after=30,
+            )
+            LOGGER.debug(pformat(vars(context.command)))
+            return
 
-        self.logger.error("We encountered an error executing: %s", context, exc_info=error)
-        await context.send(content="We encountered an error executing the command.", ephemeral=True, delete_after=30)
-        self.logger.debug(pformat(vars(context)))
+        LOGGER.error(
+            "<%s.%s> | We encountered an error executing a command. | Guild: %s | Type/Error: <%s> / %s",
+            __class__.__name__, "on_command_error",
+            context.guild,
+            type(error),
+            error,
+        )
+        await context.send(content=f"We encountered an {type(error)} executing the command.", ephemeral=True, delete_after=30)
+        LOGGER.debug(pformat(vars(context)))
 
     async def on_command_completion(self, context: commands.Context) -> None:
         if (
             context.message.content.startswith(tuple(self._prefixes))
-            and context.message.channel.permissions_for(context.me).manage_messages  # type: ignore
+            and isinstance(context.me, (discord.Member, discord.Role))
+            and context.message.channel.permissions_for(context.me).manage_messages
         ):
             try:
                 await context.message.delete()
 
             except discord.errors.NotFound:
+                msg = "<%s.%s> | Unable to find the `discord.Message` belonging to this %s object."
+                LOGGER.error(msg, __class__.__name__, "on_command_completion", type(context))  # noqa: TRY400 # I don't want to raise an exception as I know the error already.
                 return
             except Exception as e:
-                self.logger.error("We encountered an error executing: %s", context.command, exc_info=e)
+                msg = "We encountered an error executing: %s"
+                LOGGER.exception(msg, context.command, exc_info=e)
 
     async def on_reaction_add(self, reaction: discord.Reaction, user: Union[discord.Member, discord.User]) -> None:
-        """Called when a message has a reaction added to it. Similar to `on_message_edit()`,
+        """Called when a message has a reaction added to it.
+
+        Similar to `on_message_edit()`,
         if the message is not found in the internal message cache,
-        then this event will not be called. Consider using `on_raw_reaction_add()` instead."""
+        then this event will not be called. Consider using `on_raw_reaction_add()` instead.
+
+        Parameters
+        ----------
+        reaction: :class:`discord.Reaction`
+            _description_.
+        user: :class:`Union[discord.Member, discord.User]`
+            _description_.
+
+        """
         if isinstance(reaction.emoji, str):
-            self.logger.info(
-                "Emoji Used: %s Unicode: %s by %s",
+            LOGGER.info(
+                "Reaction.Emoji Used: %s Unicode: %s by %s",
                 reaction.emoji,
                 reaction.emoji.encode(encoding="unicode-escape").decode(encoding="ASCII"),
                 user.name,
             )
 
         else:
-            self.logger.info(
+            LOGGER.info(
                 "Emoji Used: %s by %s| Emoji ID: %s | Emoji Name: %s",
                 reaction.emoji,
                 user.name,
@@ -447,7 +594,11 @@ class Kuma_Kuma(commands.Bot):
             )
 
     async def get_context(
-        self, origin: Union[discord.Interaction, discord.Message], /, *, cls: type[KumaContext] = KumaContext
+        self,
+        origin: Union[discord.Interaction, discord.Message],
+        /,
+        *,
+        cls: type[KumaContext] = KumaContext,
     ) -> KumaContext:
         return await super().get_context(origin, cls=cls)
 
@@ -471,10 +622,7 @@ class KumaConfig:
 
 
 def ini_load() -> KumaConfig:
-    """
-    Parse my local ini file
-    """
-    logger = logging.getLogger()
+    """Parse my local ini file."""
     _setting_file: Path = Path("./local.ini")
     if _setting_file.is_file():
         settings = ConfigParser(converters={"list": lambda setting: [value.strip() for value in setting.split(",")]})
@@ -489,28 +637,42 @@ def ini_load() -> KumaConfig:
                 github_token=settings.get(section="GITHUB", option="token"),
             )
         except Exception as e:
-            logger.error(msg="Failed to parse the local.ini", exc_info=e)
-            raise ValueError("Failed to parse the local.ini")
+            msg = "Failed to parse the local.ini"
+            LOGGER.exception(msg, exc_info=e)
+            raise ValueError(msg) from e
+            # raise ValueError(msg)
     else:
-        raise ValueError("Failed to load .ini")
+        msg = "The <Path> provided was not a regular <File>."
+        raise ValueError(msg)
     return _temp
 
-
-async def main() -> None:
+# TODO: Change row factory for sqlite3.Row to use a dict factory. -> https://docs.python.org/3/library/sqlite3.html#sqlite3-howto-row-factory
+# Need to test this locally to understand it first.
+async def main(*, local_dev: bool = False, log_level: int = logging.INFO) -> None:  # noqa: D103
     cur_thread: Thread = current_thread()
     cur_thread.name = "Kuma Kuma Bear"
     config: KumaConfig = ini_load()
+    cache_location = Path(__file__).parent
+    # TODO(@k8thekat) Implement -> https://requests-cache.readthedocs.io/en/stable/user_guide/expiration.html
+    _cache = SQLiteBackend(
+        cache_name=cache_location.joinpath("kuma_kuma_cache").as_posix(),
+        autoclose=True,
+        expire_after=86400,
+    )
+
+    # TODO - I can make a json serializer if needed but not needed (per Umbra)
     async with (
-        Kuma_Kuma(config=config, loghandler=LogHandler(sentry=config.sentry_io, webhook_url=config.logging_webhook)) as kuma,
-        aiohttp.ClientSession() as session,  # todo - I can make a json serializer if needed but not needed (per Umbra)
-        asqlite.create_pool(database=DB_PATH) as pool,
-    ):
+        Kuma_Kuma(
+            config=config,
+            loghandler=LogHandler(sentry=config.sentry_io, level=log_level, webhook_url=config.logging_webhook, local_dev=local_dev),
+        ) as kuma,
+        CachedSession(cache=_cache) as session,
+        asqlite.create_pool(database=DB_PATH) as pool):
         kuma.pool = pool
-        kuma.session = session
+        kuma._session = session  # noqa: SLF001
         for extension in EXTENSIONS:
             await kuma.load_extension(name=extension.name)
-            kuma.logger.info("Loaded %sextension: %s", "module " if extension.ispkg else "", extension.name)
-
+            LOGGER.info("Loaded %sextension: %s", "module " if extension.ispkg else "", extension.name)
         await kuma.start()
 
 
