@@ -62,12 +62,13 @@ from utils import KumaContext, KumaEmojiTable, KumaResources
 if TYPE_CHECKING:
     from sqlite3 import Row
 
-    from discord.ext.tasks import LF, Generic, Loop
+    from discord.ext.tasks import Loop
 
 
 DB_FILENAME = "kuma_kuma.sqlite"
 DB_PATH: str = Path(__file__).parent.joinpath(DB_FILENAME).as_posix()
 LOGGER: logging.Logger = logging.getLogger(__name__)
+
 
 async def _get_prefix(bot: Kuma_Kuma, message: discord.Message) -> list[str]:
     """Retrieves the prefixes for the current guild.
@@ -135,6 +136,16 @@ CREATE TABLE IF NOT EXISTS owners (
 )"""
 
 
+class _DiscordReconnectFilter(logging.Filter):
+    """Downgrades discord.py reconnect attempts from ERROR to WARNING so Sentry ignores them."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno == logging.ERROR and "Attempting a reconnect" in record.getMessage():
+            record.levelno = logging.WARNING
+            record.levelname = "WARNING"
+        return True
+
+
 class LogHandler:
     """Kuma Kuma logging.
 
@@ -178,6 +189,7 @@ class LogHandler:
             ],
         )
         self.logger.setLevel(level=level)
+        logging.getLogger("discord.client").addFilter(_DiscordReconnectFilter())
 
     def parse_log(self) -> str:
         if self.cur_log.exists():
@@ -271,8 +283,18 @@ class ProxyObject(discord.Object):
 class KumaCommandTree(app_commands.CommandTree):
     """Handles any Application Commands."""
 
-    client: Kuma_Kuma # pyright: ignore[reportIncompatibleVariableOverride]
-    _mention_app_commands: dict[int | None, list[app_commands.AppCommand]]
+    client: Kuma_Kuma  # pyright: ignore[reportIncompatibleVariableOverride]
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._mention_app_commands: dict[int | None, list[app_commands.AppCommand]] = {}
+
+    async def interaction_check(self, interaction: Interaction, /) -> bool:
+        command_name = interaction.command.qualified_name if interaction.command else "Unknown"
+        cog_name = getattr(interaction.command, "binding", None)
+        cog_name = type(cog_name).__name__ if cog_name else "N/A"
+        LOGGER.info("%s used %s -> /%s", interaction.user.name, cog_name, command_name)
+        return True
 
     async def sync(self, *, guild: Optional[discord.abc.Snowflake] = None) -> list[app_commands.AppCommand]:
         """Method overwritten to store the commands."""
@@ -344,39 +366,41 @@ class KumaCommandTree(app_commands.CommandTree):
 
         return f"</{_command.qualified_name}:{app_command_found.id}>"
 
-    # async def on_error(
-    #     self,
-    #     interaction: Interaction,
-    #     error: app_commands.AppCommandError,
-    # ) -> None:
-    #     assert interaction.command is not None  # typechecking # disable assertions
-    #     LOGGER.exception("Exception occurred in the CommandTree:\n%s", exc_info=error)
+    async def on_error(
+        self,
+        interaction: Interaction,
+        error: app_commands.AppCommandError,
+    ) -> None:
+        LOGGER.exception("Exception occurred in the CommandTree:", exc_info=error)
 
-    #     e = discord.Embed(title="Command Error", colour=0xA32952)
-    #     e.add_field(name="Command", value=(interaction.command and interaction.command.name) or "No command found.")
-    #     e.add_field(name="Author", value=interaction.user, inline=False)
-    #     channel = interaction.channel
-    #     assert channel  # always there
-    #     guild = interaction.guild
-    #     channel_name: str = "In DMs" if isinstance(channel, (discord.DMChannel, discord.PartialMessageable)) else channel.name  # type: ignore - for some reason it thinks channel is None; despite the assertion.
+        e = discord.Embed(title="Command Error", colour=0xA32952)
+        e.add_field(name="Command", value=(interaction.command and interaction.command.name) or "No command found.")
+        e.add_field(name="Author", value=str(interaction.user), inline=False)
 
-    #     location_fmt: str = f"Channel: {channel_name} ({channel.id})"
-    #     if guild:
-    #         location_fmt += f"\nGuild: {guild.name} ({guild.id})"
-    #     e.add_field(name="Location", value=location_fmt, inline=True)
-    #     (exc_type, exc, tb) = type(error), error, error.__traceback__
-    #     trace: list[str] = traceback.format_exception(exc_type, exc, tb)
-    #     clean: str = "".join(trace)
-    #     if len(clean) >= 2000:
-    #         # TODO - mystbin login info? possibly generate a password for these?
-    #         paste: mystbin.Paste = await self.client.loghandler.create_paste(content=clean, session=self.client.session)
-    #         e.description = f"Error was too long to send in a codeblock, so I have pasted it [here]({paste.url})."
-    #     else:
-    #         e.description = f"```py\n{clean}\n```"
+        channel = interaction.channel
+        guild = interaction.guild
+        if channel is None:
+            channel_name = "Unknown"
+        elif isinstance(channel, (discord.DMChannel, discord.PartialMessageable)):
+            channel_name = "In DMs"
+        else:
+            channel_name = channel.name
 
-    #     e.timestamp = datetime.datetime.now(tz=datetime.UTC)
-    #     await self.client.logging_webhook.send(embed=e)
-    #     await self.client.owner.send(embed=e)
+        location_fmt: str = f"Channel: {channel_name} ({channel.id})" if channel else "Channel: Unknown"
+        if guild:
+            location_fmt += f"\nGuild: {guild.name} ({guild.id})"
+        e.add_field(name="Location", value=location_fmt, inline=True)
+
+        trace: list[str] = traceback.format_exception(type(error), error, error.__traceback__)
+        clean: str = "".join(trace)
+        if len(clean) >= 2000:
+            paste: mystbin.Paste = await self.client.loghandler.create_paste(content=clean, session=self.client.session)
+            e.description = f"Error was too long to send in a codeblock, so I have pasted it [here]({paste.url})."
+        else:
+            e.description = f"```py\n{clean}\n```"
+
+        e.timestamp = datetime.datetime.now(tz=datetime.UTC)
+        await self.client.owner.send(embed=e, silent=True)
 
 
 class Kuma_Kuma(commands.Bot):  # noqa: N801
@@ -404,7 +428,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
         self.loghandler: LogHandler = loghandler
         self._prefixes.add("kuma")
         self._loops = []
-        super().__init__(intents=intents, command_prefix=_get_prefix, strip_after_prefix=True)
+        super().__init__(intents=intents, command_prefix=_get_prefix, strip_after_prefix=True, tree_cls=KumaCommandTree)
 
         self.owner_ids = set()
         self.owner_ids.add(144462063920611328)
@@ -446,7 +470,6 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
     @property
     def session(self) -> CachedSession:
         return self._session
-
 
     async def setup_hook(self) -> None:
         self.bot_app_info: discord.AppInfo = await self.application_info()
@@ -536,7 +559,8 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
 
         LOGGER.error(
             "<%s.%s> | We encountered an error executing a command. | Guild: %s | Type/Error: <%s> / %s",
-            __class__.__name__, "on_command_error",
+            __class__.__name__,
+            "on_command_error",
             context.guild,
             type(error),
             error,
@@ -646,6 +670,7 @@ def ini_load() -> KumaConfig:
         raise ValueError(msg)
     return _temp
 
+
 # TODO: Change row factory for sqlite3.Row to use a dict factory. -> https://docs.python.org/3/library/sqlite3.html#sqlite3-howto-row-factory
 # Need to test this locally to understand it first.
 async def main(*, local_dev: bool = False, log_level: int = logging.INFO) -> None:  # noqa: D103
@@ -667,7 +692,8 @@ async def main(*, local_dev: bool = False, log_level: int = logging.INFO) -> Non
             loghandler=LogHandler(sentry=config.sentry_io, level=log_level, webhook_url=config.logging_webhook, local_dev=local_dev),
         ) as kuma,
         CachedSession(cache=_cache) as session,
-        asqlite.create_pool(database=DB_PATH) as pool):
+        asqlite.create_pool(database=DB_PATH) as pool,
+    ):
         kuma.pool = pool
         kuma._session = session  # noqa: SLF001
         for extension in EXTENSIONS:

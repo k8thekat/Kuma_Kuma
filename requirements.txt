@@ -6,6 +6,7 @@ colorlog
 discord.py
 fake_useragent
 GitPython
+imagehash
 import_expression
 lxml
 Pillow

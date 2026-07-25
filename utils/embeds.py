@@ -22,7 +22,7 @@ import datetime
 import platform
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, Self, Unpack
+from typing import Literal, Optional, Self, Unpack
 
 import discord
 from discord import Embed
@@ -34,7 +34,6 @@ from utils.cog import KumaCog, KumaResources
 __all__ = ("KumaEmbed",)
 
 
-# ?SUGGESTION: Consider setting up a default ``set_thumbnail`` overwrite function.
 class KumaEmbed(Embed):
     """Kuma Kuma Bears default Embed structure.
 
@@ -47,62 +46,153 @@ class KumaEmbed(Embed):
         otherwise overwrite ``set_footer`` call and point to ``footer_icon`` for the default.
 
     .. note::
-        - Will call ``set_footer``, ``set_thumbnail`` and ``set_author`` with in-place default content.
+        - Will call ``set_footer`` and ``set_author`` with in-place default content.
 
     .. warning::
         Make sure to use the ``attachments`` property inside your ``message.send()`` if you want the default content.
+
+
+    Attributes
+    ----------
+    cog: :class:`KumaCog`
+        A :class:`discord.Cog` type class.
+    footer_icon: :class:`discord.File | str | None`
+        Set the Footer Icon for a :class:`discord.Embed`.
+    thumbnail_icon: :class:`discord.File | str | None`
+        Set the Thumbnail Icon for a :class:`discord.Embed`.
+    avatar_icon: :class:`discord.File | str | None`
+        Set the Avatar Icon for a :class:`discord.Embed`.
+    field_image: :class:`discord.File | str | None`
+        Set the Field Image for a :class:`discord.Embed`.
+
     """
 
     cog: KumaCog
     "My internal cog class."
-    # _thumbnail_icon: discord.File | None = discord.File(KumaResources().sticker2, filename="thumbnail.png")
+    _footer_icon: discord.File | str | None = None
+    _thumbnail_icon: discord.File | str | None = None
+    _avatar_icon: discord.File | str | None = None
+    _field_image: discord.File | str | None = None
 
     @property
     def attachments(self) -> Sequence[discord.File]:
-        icons: list[discord.File | None] = [self.thumbnail_icon, self.avatar_icon, self.footer_icon, self.field_image]
-        return [entry for entry in icons if entry is not None]
-
-    @property
-    def thumbnail_icon(self) -> discord.File:
-        """Our Kuma Kuma Bear thumbnail icon - aka ``sticker`` #1.
+        """Holds all the inline attachment URLS to pass along.
 
         Returns
         -------
-        :class:`discord.File`
-            A discord File object of the Kuma Kuma Bear footer icon.
+        :class:`Sequence[discord.File]`
+            _description_.
 
         """
-        return discord.File(fp=KumaResources().sticker, filename="thumbnail-icon.png")
+        attrs: list[str] = ["thumbnail_icon", "avatar_icon", "footer_icon", "field_image"]
+        icons: list[discord.File] = []
+        # This should allow us to del the property/attributes when not using defaults thus preventing the attachments from being included.
+        for attr in attrs:
+            try:
+                res: discord.File | str | None = getattr(self, attr)
+                # We only care about discord.Files as they will be in-line attachments (by design).
+                if isinstance(res, discord.File):
+                    icons.append(res)
+            except AttributeError:
+                continue
+
+        # Since we allow people to set the icon values to ``None``
+        # (say you want to use defaults but not all of them.)
+        return [entry for entry in icons if not None]
 
     @property
-    def avatar_icon(self) -> discord.File:
-        """Our Kuma Kuma Bear avatar icon - aka ``sticker2``.
+    def thumbnail_icon(self) -> discord.File | str | None:
+        """Set the Thumbnail Icon for a :class:`discord.Embed`.
+
+        - Supports ``URL's``.
+        - Setting to ``None`` will remove any existing thumbnail icon.
+
+        .. note::
+            If supplied a :class:`discord.File` object, updates the "filename" attribute to be used as an inline attachment.
 
         Returns
         -------
-        :class:`discord.File`
-            A discord File object of the Kuma Kuma Bear avatar icon..
+        :class:`discord.File | str | None`
 
         """
-        return discord.File(fp=KumaResources().sticker2, filename="avatar-icon.png")
+        return self._thumbnail_icon
+
+    @thumbnail_icon.setter
+    def thumbnail_icon(self, value: Optional[discord.File | str]) -> None:
+        if isinstance(value, discord.File):
+            value.filename = "thumbnail-icon.png"
+        self._thumbnail_icon = value
 
     @property
-    def field_image(self) -> None:
-        pass
+    def avatar_icon(self) -> discord.File | str | None:
+        """Set the Avatar Icon for a :class:`discord.Embed`.
 
-    @property
-    def footer_icon(self) -> discord.File:
-        """Our Kuma Kuma Bear footer icon - aka `sticker`.
+        - Supports ``URL's``.
+        - Setting to ``None`` will remove any existing avatar icon.
+
+        .. note::
+            If supplied a :class:`discord.File` object, updates the "filename" attribute to be used as an inline attachment.
 
         Returns
         -------
-        :class:`discord.File`
-            A discord File object of the Kuma Kuma Bear footer icon.
+        :class:`discord.File | str | None`
 
         """
-        return discord.File(fp=KumaResources().sticker, filename="footer-icon.png")
+        return self._avatar_icon
 
-    def __init__(self, *, cog: KumaCog, info: Optional[discord.AppInfo] = None, **kwargs: Unpack[EmbedParams]) -> None:
+    @avatar_icon.setter
+    def avatar_icon(self, value: Optional[discord.File | str]) -> None:
+        if isinstance(value, discord.File):
+            value.filename = "avatar-icon.png"
+        self._avatar_icon = value
+
+    @property
+    def field_image(self) -> discord.File | str | None:
+        """Set the Field Image for a :class:`discord.Embed`.
+
+        - Supports ``URL's``
+        - Setting to ``None`` will remove any existing field images.
+
+        .. note::
+            If supplied a :class:`discord.File` object, updates the "filename" attribute to be used as an inline attachment.
+
+        Returns
+        -------
+        :class:`discord.File | str | None`
+
+        """
+        return self._field_image
+
+    @field_image.setter
+    def field_image(self, value: None | discord.File | str) -> None:
+        if isinstance(value, discord.File):
+            value.filename = "field-image.png"
+        self._field_image = value
+
+    @property
+    def footer_icon(self) -> discord.File | str | None:
+        """The Footer Icon for a :class:`discord.Embed`.
+
+        - Supports ``URL's``.
+        - Setting to ``None`` will remove any existing footer icon.
+
+        .. note::
+            If supplied a :class:`discord.File` object, updates the "filename" attribute to be used as an inline attachment.
+
+        Returns
+        -------
+        :class:`discord.File | str | None`
+
+        """
+        return self._footer_icon
+
+    @footer_icon.setter
+    def footer_icon(self, value: Optional[discord.File | str]) -> None:
+        if isinstance(value, discord.File):
+            value.filename = "footer-icon.png"
+        self._footer_icon = value
+
+    def __init__(self, *, cog: KumaCog, defaults: bool = False, **kwargs: Unpack[EmbedParams]) -> None:
         self.cog = cog
 
         if kwargs.get("author") is not None:
@@ -122,15 +212,14 @@ class KumaEmbed(Embed):
 
         super().__init__(**kwargs)  # pyright: ignore[reportCallIssue] # We pop the author key earlier.
 
-        # All our default settings overwriting an Embeds defaults post init.
-        if info is not None:
-            self.set_footer(text=f"Kuma Kuma Bear made by {info.owner.name}")
-        self.set_author(name="Kuma Kuma Bear", icon_url="attachment://avatar-icon.png")
-        self.set_thumbnail(url="attachment://thumbnail-icon.png")
-        self.set_footer(
-            text=f"Made with discord.py v{discord.__version__}, Running {platform.python_implementation()} v{platform.python_version()}",
-            icon_url="https://i.imgur.com/5BFecvA.png",
-        )
+        if defaults:
+            # self.footer_icon = discord.File(self.cog.resources.sticker)
+            self.avatar_icon = discord.File(self.cog.resources.sticker2)
+            # self.thumbnail_icon = discord.File(self.cog.resources.sticker)
+            self.set_footer(text=f"Kuma Kuma Bear | by {self.cog.bot.owner.name}", img=discord.File(self.cog.resources.sticker))
+            self.set_author(author=self.cog.bot.user)
+            self.set_thumbnail(img=discord.File(self.cog.resources.sticker))
+            self.set_image(img=discord.File(self.cog.resources.banner))
 
     def add_blank_field(self, *, index: Optional[int] = -1, inline: bool = False) -> Self:
         """Adds a blank field to the embed object.
@@ -168,19 +257,20 @@ class KumaEmbed(Embed):
         self,
         *,
         text: Optional[str] = "Kuma Kuma Bear",
+        img: Optional[discord.File] = None,
         icon_url: Optional[str] = "attachment://footer-icon.png",
-        # timestamp: bool = False,
     ) -> Self:
         """Set the footer of the Embed.
 
         Parameters
         ----------
         text: :class:`Optional[str]`, optional
-            The text parameter for `super().set_footer()`, by default "Kuma Kuma Bear".
-        icon_url: :class:`_type_`, optional
-            The icon url parameter for `super().set_footer()`, by default "attachment://footer-icon.png".
-        timestamp: :class:`bool`, optional
-            Add a `discord timestamp` of when the embed was sent to the end of the `text` parameter, by default False.
+            The text parameter for `super().set_footer(text, ...)`, by default "text = Kuma Kuma Bear".
+        img: :class:`Optional[discord.File]`, optional
+            A pre-built discord.File object that will be set as :property:`self.footer_icon` and the URL set to `attachment://footer-icon.png`,
+            by default `None`.
+        icon_url: :class:`Optional[str]`, optional
+            The icon url parameter for `super().set_footer(..., icon_url)`, by default "icon_url = attachment://footer-icon.png".
 
         Returns
         -------
@@ -188,6 +278,91 @@ class KumaEmbed(Embed):
             Returns a :class:`Self` for fluent code typing.
 
         """
-        # if timestamp is True and text is not None:
-        #     text += f" | {datetime.datetime.now(tz=datetime.UTC).strftime('%d/%m | %H:%M (%Z)')}"
+        if img is not None:
+            self.footer_icon = img
+            icon_url = "attachment://footer-icon.png"
+
         return super().set_footer(text=text, icon_url=icon_url)
+
+    def set_image(self, *, img: Optional[discord.File] = None, url: Optional[str] = "attachment://field-image.png") -> Self:
+        """Set the Field Image of the Embed.
+
+        Parameters
+        ----------
+        img: :class:`Optional[discord.File]`, optional
+            A pre-built discord.File object that will be set as :property:`self.field_image` and the URL set to `attachment://field-image.png`,
+            by default `None`.
+        url: :class:`Optional[str]`, optional
+            The icon url parameter for `super().set_image(url)`, by default "url = attachment://field-image.png".
+
+        Returns
+        -------
+        :class:`Self`
+            Returns a :class:`Self` for fluent code typing.
+
+        """
+        # Update our property. Renaming happens internally.
+        # Forced return as mutually exclusive you'd either use a URL or an IMG. Not both...
+        if img is not None:
+            self.field_image = img
+            return super().set_image(url="attachment://field-image.png")
+
+        return super().set_image(url=url)
+
+    def set_author(
+        self,
+        *,
+        author: Optional[discord.Member | discord.ClientUser] = None,
+        name: Optional[str] = "Kuma Kuma Bear",
+        url: Optional[str] = None,
+        icon_url: Optional[str] = "attachment://avatar-icon.png",
+    ) -> Self:
+        """Set the Author Image of the Embed.
+
+        Parameters
+        ----------
+        author: :class:`Optional[discord.Member]`, optional
+            The author of the embed, if applicable. Will use the object to populate ``name`` and either ``icon_url`` and or ``icon``
+        name: :class:`Optional[str]`, optional
+            The name of the author. Can only be up to 256 characters. Default is "Kuma Kuma Bear".
+        url: :class:`Optional[str]`, optional
+            The URL for the author, if ``author`` is ``None``.
+        icon_url: :class:`Optional[str]`, optional
+            The icon url parameter for `super().set_author(icon_url)`, by default "icon_url = attachment://field-image.png".
+
+        Returns
+        -------
+        :class:`Self`
+            Returns a :class:`Self` for fluent code typing.
+
+        """
+        if author is not None:
+            if icon_url is None:
+                icon_url = author.display_avatar.url
+            name = author.display_name
+
+        return super().set_author(name=name, url=url, icon_url=icon_url)
+
+    def set_thumbnail(
+        self, *, img: Optional[discord.File] = None, url: Optional[str | discord.Asset] = "attachment://thumbnail-icon.png"
+    ) -> Self:
+        """Set the Thumbnail Image of the Embedd.
+
+        Parameters
+        ----------
+        img: :class:`Optional[discord.File]`, optional
+            A pre-built discord.File object that will be set as :property:`self.thumbnail_icon` and the URL set to `attachment://thumbnail-icon.png`,
+            by default `None`.
+        url: :class:`_type_`, optional
+            The icon url parameter for `super().set_thumbnail(url)`, by default "attachment://thumbnail-icon.png".
+
+        Returns
+        -------
+        :class:`Self`
+            Returns a :class:`Self` for fluent code typing.
+
+        """
+        if img is not None:
+            self.thumbnail_icon = img
+
+        return super().set_thumbnail(url=url)

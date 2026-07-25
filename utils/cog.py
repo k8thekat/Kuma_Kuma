@@ -20,6 +20,7 @@ Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA
 
 from __future__ import annotations
 
+import asyncio
 import datetime
 import io
 import logging
@@ -27,6 +28,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Literal, Optional, Union, Unpack
 
+import aiohttp
 import discord
 from discord.ext import commands
 from lemminflect import getInflection  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
@@ -83,15 +85,42 @@ class PennPOS(StrEnum):
 
 
 class UnicodeTable:
-    # Unicode Library -> https://www.vertex42.com/ExcelTips/unicode-symbols.html
+    """Unicode Library.
+
+    .. note::
+    - https://www.vertex42.com/ExcelTips/unicode-symbols.html
+
+    __Current Attributes__
+    ```
     middle_dot: str = "\U000030fb"
     em_dash: str = "\U0000fe31"
     double_vertical: str = "\U00002016"  # DOUBLE VERTICAL LINE - ‖ — ‖ — http://www.fileformat.info/info/unicode/char/2016
     right_arrow: str = "\U000021e2"  # RIGHTWARDS DASHED ARROW - ⇢ — ⇢ — http://www.fileformat.info/info/unicode/char/21e2
     colon: str = "\U00002236"  # RATIO - ∶ — ∶ — http://www.fileformat.info/info/unicode/char/2236  # noqa: RUF003
     right_triangle_arrow: str = "\U000022b3"  # CONTAINS AS NORMAL SUBGROUP - ⊳ — ⊳ — http://www.fileformat.info/info/unicode/char/22b3
-    star: str = "\U00002b50"
+    star: str = "\U00002b50" # ⭐
     blank: str = "\u200b"
+    inbox_tray: str = "\U0001f4e5" # :inbox_tray:
+    loud_speaker: str = "\U0001f4e2" # : PUBLIC ADDRESS LOUDSPEAKER - 📢 — 📢 — http://www.fileformat.info/info/unicode/char/1f4e2
+    no_entry: str = "\U000026d4" #: NO ENTRY - ⛔ — ⛔ — http://www.fileformat.info/info/unicode/char/26d4
+    warning_sign: str = "\U000026a0" # : WARNING SIGN - ⚠ — ⚠ — http://www.fileformat.info/info/unicode/char/26a0
+    speed_bubble: str = "\U0001f5e8" #: LEFT SPEECH BUBBLE - 🗨 — 🗨 — http://www.fileformat.info/info/unicode/char/1f5e8
+    ```
+    """
+
+    middle_dot: str = "\U000030fb"
+    em_dash: str = "\U0000fe31"
+    double_vertical: str = "\U00002016"  # DOUBLE VERTICAL LINE - ‖ — ‖ — http://www.fileformat.info/info/unicode/char/2016
+    right_arrow: str = "\U000021e2"  # RIGHTWARDS DASHED ARROW - ⇢ — ⇢ — http://www.fileformat.info/info/unicode/char/21e2
+    colon: str = "\U00002236"  # RATIO - ∶ — ∶ — http://www.fileformat.info/info/unicode/char/2236  # noqa: RUF003
+    right_triangle_arrow: str = "\U000022b3"  # CONTAINS AS NORMAL SUBGROUP - ⊳ — ⊳ — http://www.fileformat.info/info/unicode/char/22b3
+    star: str = "\U00002b50"  # ⭐
+    blank: str = "\u200b"
+    inbox_tray: str = "\U0001f4e5"  # :inbox_tray:
+    loud_speaker: str = "\U0001f4e2"  # : PUBLIC ADDRESS LOUDSPEAKER - 📢 — 📢 — http://www.fileformat.info/info/unicode/char/1f4e2
+    no_entry: str = "\U000026d4"  #: NO ENTRY - ⛔ — ⛔ — http://www.fileformat.info/info/unicode/char/26d4
+    warning_sign: str = "\U000026a0"  # : WARNING SIGN - ⚠ — ⚠ — http://www.fileformat.info/info/unicode/char/26a0
+    speed_bubble: str = "\U0001f5e8"  #: LEFT SPEECH BUBBLE - 🗨 — 🗨 — http://www.fileformat.info/info/unicode/char/1f5e8
 
 
 class KumaEmojiTable:
@@ -116,8 +145,6 @@ class KumaEmojiTable:
     kuma_wow = "<:kuma_wow:1337130238878154893>"
     kuma_pout = "<:kuma_pout:1337133347163345019>"
     kuma_head_clench = "<:kuma_head_clench:1337133349612814398>"
-
-    # inbox_tray: \U0001f4e5 :inbox_tray:
 
     @staticmethod
     def to_inline_emoji(emoji: Union[str, int]) -> str | None:
@@ -333,20 +360,19 @@ class KumaCog(commands.Cog):
             return results[0]  # pyright: ignore[reportUnknownVariableType]
         return word
 
-    async def get_request(self,*, url: str, **request_params: Unpack[AioHTTPRequestOptions])-> bytes | None:
-        async with self.bot.session.get(url=url, **request_params) as session:
-            if session.status >= 200 and session.status < 300:
-                try:
+    async def get_request(self, *, url: str, **request_params: Unpack[AioHTTPRequestOptions]) -> bytes | None:
+        try:
+            async with self.bot.session.get(url=url, **request_params) as session:
+                if session.status >= 200 and session.status < 300:
                     return await session.read()
-                except Exception as e:
-                    LOGGER.exception(
-                        "<%s.%s> | Encountered an exception handling the response. | URL: %s",
-                        __class__.__name__,
-                        "get_request",
-                        url,
-                        exc_info=e,
-                    )
-                    raise RuntimeError from e
+        except (TimeoutError, aiohttp.ClientError) as e:
+            LOGGER.warning(
+                "<%s.%s> | Connection failed. | URL: %s | Error: %s",
+                __class__.__name__,
+                "get_request",
+                url,
+                e,
+            )
         return None
 
 

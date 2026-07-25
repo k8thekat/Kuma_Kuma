@@ -19,7 +19,7 @@ Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA
 """
 
 import importlib
-import inspect
+import sys
 import types
 from types import ModuleType
 from typing import TYPE_CHECKING
@@ -33,18 +33,29 @@ if TYPE_CHECKING:
     from ._types import *
 
 
-def reload_module_dependencies(module_path: str, /) -> set[str]:
-    """Reloads all dependencies of a module with importlib.
+def reload_module_dependencies(module_path: str, /, *, package_root: str = "utils") -> set[str]:
+    """Reload a module *and* every project-owned module it imports, leaf-first.
+
+    Python caches imports in ``sys.modules``. When discord.py reloads an
+    extension it only re-executes that single file; the modules it imports
+    (e.g. ``utils.embeds``) are returned from cache unchanged. This walks the
+    dependency graph of ``module_path`` and reloads each dependency that lives
+    under ``package_root`` in bottom-up order, so a dependent module rebinds the
+    freshly-reloaded names of its dependencies.
 
     Parameters
     ----------
     module_path : str
-        The module to reload, dot qualified.
+        The module to reload, dot-qualified (e.g. ``"utils.embeds"``).
+    package_root : str, optional
+        Only modules whose name starts with this prefix are reloaded. This
+        keeps us from reloading stdlib / discord.py / third-party modules,
+        which is both pointless and dangerous. Defaults to ``"utils"``.
 
     Returns
     -------
     set[str]
-        The reloaded modules
+        The names of every module that was reloaded.
 
     Raises
     ------
@@ -52,23 +63,45 @@ def reload_module_dependencies(module_path: str, /) -> set[str]:
         You passed an invalid module path.
 
     """
-    out: list = []
-    mod_to_reload: ModuleType = importlib.import_module(name=module_path)
+    root: ModuleType = importlib.import_module(name=module_path)
 
-    def get_pred(value: object):  # noqa: ANN202
-        return isinstance(value, types.ModuleType) or (
-            inspect.isclass(object=value) or (inspect.isfunction(object=value) and value.__module__ is not mod_to_reload)
-        )
+    # Post-order DFS: append a module to `ordered` only *after* visiting all of
+    # its dependencies, so the list ends up leaf-first (deps before dependents).
+    ordered: list[ModuleType] = []
+    seen: set[str] = set()
 
-    items = inspect.getmembers(object=mod_to_reload, predicate=get_pred)
+    def visit(module: ModuleType) -> None:
+        # Guard against re-visiting and circular imports (A imports B, B imports
+        # A) -- mark `seen` *before* recursing.
+        if module.__name__ in seen:
+            return
+        seen.add(module.__name__)
 
-    for _, value in items:
-        if isinstance(value, types.ModuleType):
-            importlib.reload(module=value)
-            out.append(value.__name__)
-        elif inspect.isclass(object=value) or (inspect.isfunction(object=value) and value.__module__ is not mod_to_reload):
-            module: ModuleType = importlib.import_module(name=value.__module__)
-            importlib.reload(module=module)
-            out.append(module.__name__)
+        # Inspect this module's namespace for references to other modules we own.
+        for value in vars(module).values():
+            dep: ModuleType | None = None
 
-    return set(out)
+            if isinstance(value, types.ModuleType):
+                # A direct `import utils.embeds` style reference.
+                dep = value
+            elif hasattr(value, "__module__"):
+                # A `from utils.embeds import KumaEmbed` style reference: the
+                # class/function isn't a module, but its `__module__` tells us
+                # which module to reload.
+                dep = sys.modules.get(getattr(value, "__module__", None) or "")
+
+            if dep is not None and dep.__name__.startswith(package_root):
+                visit(dep)
+
+        ordered.append(module)
+
+    visit(root)
+
+    # Reload in dependency order. `ordered` has the root module last, so its
+    # imports are refreshed before it re-binds them.
+    reloaded: set[str] = set()
+    for module in ordered:
+        importlib.reload(module=module)
+        reloaded.add(module.__name__)
+
+    return reloaded

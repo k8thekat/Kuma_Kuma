@@ -24,3 +24,5 @@ local.py
 *secret.json
 *cache
 *kuma_kuma.egg-info
+.claude_attachments/*
+.claude_ask/*

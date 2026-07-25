@@ -1,16 +1,22 @@
 [tool.ruff]
 target-version = "py312"
 line-length = 140
+
+[tool.ruff.lint]
 select = ["ALL"]
 ignore = [
     "ANN401",
+    "ASYNC240", # Using pathlib instead of Trio/etc inside Async functions.
     "C901", # Function is too complex
+    "COM812", # Conflicts with the ruff formatter.
+    "D203", # Incompatible with D211 (no-blank-line-before-class).
+    "D213", # Incompatible with D212 (multi-line-summary-first-line).
     "D401", # Ignore "Imperative Mood" statement for docstrings.
     "D101", # Public class docstring requirement.
     "D102", # Docstring on public properties.
     "D105", # Magic(dunder) __method__ docstring requirement.
     "D107", # Docstring on `__init__` functions.
-    "ERA001", #Ignore commented out code.
+    "ERA001", # Ignore commented out code.
     "FBT001", # Boolean argument.
     "FBT002", # Boolean positional argument.
     "FIX002", # Ignore TODO's telling you to "fix them".

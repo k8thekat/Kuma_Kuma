@@ -2,6 +2,16 @@
 {{summaryPlaceholder}}.
 
 {{extendedSummaryPlaceholder}}
+
+{{#attributesExist}}
+Attributes
+----------
+{{#attributes}}
+{{var}}: :class:`{{typePlaceholder}}`
+    {{descriptionPlaceholder}}
+{{/attributes}}
+{{/attributesExist}}
+
 {{#parametersExist}}
 Parameters
 ----------
@@ -14,6 +24,7 @@ Parameters
     {{descriptionPlaceholder}}, by default {{&default}}.
 {{/kwargs}}
 {{/parametersExist}}
+
 {{#returnsExist}}
 
 Returns
@@ -23,6 +34,7 @@ Returns
     {{descriptionPlaceholder}}.
 {{/returns}}
 {{/returnsExist}}
+
 {{#yieldsExist}}
 
 Yields
