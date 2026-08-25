@@ -96,9 +96,9 @@ class KumaEmbed(Embed):
             except AttributeError:
                 continue
 
-        # Since we allow people to set the icon values to ``None``
-        # (say you want to use defaults but not all of them.)
-        return [entry for entry in icons if not None]
+        # Anything set to ``None`` (say you want to use defaults but not all of them) was already
+        # dropped by the ``isinstance`` check above, so everything left here is a real attachment.
+        return icons
 
     @property
     def thumbnail_icon(self) -> discord.File | str | None:
@@ -221,19 +221,24 @@ class KumaEmbed(Embed):
             self.set_thumbnail(img=discord.File(self.cog.resources.sticker))
             self.set_image(img=discord.File(self.cog.resources.banner))
 
-    def add_blank_field(self, *, index: Optional[int] = -1, inline: bool = False) -> Self:
+    def add_blank_field(self, *, index: Optional[int] = None, inline: bool = False) -> Self:
         """Adds a blank field to the embed object.
 
         This function returns the class instance to allow for fluent-style
         chaining. Can only be up to 25 fields.
+
+        .. note::
+            The default used to be ``-1``, which is *one before the end* rather than the end --
+            `insert_field_at(-1)` on a single field embed puts the spacer above it. Every bare
+            caller wanted a spacer appended where they stood, so `None` (append) is the default.
 
         Parameters
         ----------
         inline: :class:`bool`, optional
             Whether the field should be displayed inline, default is False
         index: :class:`Optional[int]`, optional
-            To insert the field at a specific index, typically at the end.
-            - If `None` will insert the field via `Self.add_field()`.
+            To insert the field at a specific index, by default `None` which appends via
+            `Self.add_field()`.
 
         """
         if index is None:
@@ -244,9 +249,24 @@ class KumaEmbed(Embed):
         return self
 
     def add_seperator(self, *, index: Optional[int] = None, inline: bool = False) -> Self:
-        """..."""
+        """Adds a horizontal rule drawn out of field names, to break an embed into sections.
+
+        Parameters
+        ----------
+        index: :class:`Optional[int]`, optional
+            To insert the rule at a specific index, by default `None` which appends.
+        inline: :class:`bool`, optional
+            Whether the fields should be displayed inline, by default False.
+
+        Returns
+        -------
+        :class:`Self`
+            Returns a :class:`Self` for fluent code typing.
+
+        """
         if index is None:
-            self.add_field(name="_________________________", value="test", inline=inline)
+            # A zero width space, not the literal "test" this was left carrying — that rendered.
+            self.add_field(name="_________________________", value="\u200b", inline=inline)
             self.add_field(name=self.cog.unicode.double_vertical, value=self.cog.unicode.double_vertical, inline=inline)
             return self
 
@@ -258,9 +278,15 @@ class KumaEmbed(Embed):
         *,
         text: Optional[str] = "Kuma Kuma Bear",
         img: Optional[discord.File] = None,
-        icon_url: Optional[str] = "attachment://footer-icon.png",
+        icon_url: Optional[str] = None,
     ) -> Self:
         """Set the footer of the Embed.
+
+        .. warning::
+            ``icon_url`` defaults to `None` rather than to `attachment://footer-icon.png`. Discord only renders
+            an `attachment://` URL when a file of that name rides along in the same message payload, so claiming
+            the icon unconditionally left every embed that never set a :property:`footer_icon` pointing at a file
+            that was never uploaded. The URL is now only emitted when there is an actual attachment behind it.
 
         Parameters
         ----------
@@ -270,7 +296,7 @@ class KumaEmbed(Embed):
             A pre-built discord.File object that will be set as :property:`self.footer_icon` and the URL set to `attachment://footer-icon.png`,
             by default `None`.
         icon_url: :class:`Optional[str]`, optional
-            The icon url parameter for `super().set_footer(..., icon_url)`, by default "icon_url = attachment://footer-icon.png".
+            The icon url parameter for `super().set_footer(..., icon_url)`, by default `None` (no footer icon).
 
         Returns
         -------
@@ -281,11 +307,19 @@ class KumaEmbed(Embed):
         if img is not None:
             self.footer_icon = img
             icon_url = "attachment://footer-icon.png"
+        elif icon_url is None and isinstance(self.footer_icon, discord.File):
+            # A footer icon was set earlier (``defaults=True``, or a previous ``set_footer(img=...)``);
+            # keep pointing at it so re-setting just the text does not drop the image.
+            icon_url = "attachment://footer-icon.png"
 
         return super().set_footer(text=text, icon_url=icon_url)
 
-    def set_image(self, *, img: Optional[discord.File] = None, url: Optional[str] = "attachment://field-image.png") -> Self:
+    def set_image(self, *, img: Optional[discord.File] = None, url: Optional[str] = None) -> Self:
         """Set the Field Image of the Embed.
+
+        .. warning::
+            ``url`` defaults to `None` rather than to `attachment://field-image.png` — see the same note on
+            :meth:`set_footer`. The attachment URL is only emitted when a file is actually riding along.
 
         Parameters
         ----------
@@ -293,7 +327,7 @@ class KumaEmbed(Embed):
             A pre-built discord.File object that will be set as :property:`self.field_image` and the URL set to `attachment://field-image.png`,
             by default `None`.
         url: :class:`Optional[str]`, optional
-            The icon url parameter for `super().set_image(url)`, by default "url = attachment://field-image.png".
+            The icon url parameter for `super().set_image(url)`, by default `None` (no image).
 
         Returns
         -------
@@ -305,6 +339,10 @@ class KumaEmbed(Embed):
         # Forced return as mutually exclusive you'd either use a URL or an IMG. Not both...
         if img is not None:
             self.field_image = img
+            return super().set_image(url="attachment://field-image.png")
+
+        if url is None and isinstance(self.field_image, discord.File):
+            # An image was attached earlier; keep pointing at it rather than silently clearing it.
             return super().set_image(url="attachment://field-image.png")
 
         return super().set_image(url=url)
@@ -343,18 +381,20 @@ class KumaEmbed(Embed):
 
         return super().set_author(name=name, url=url, icon_url=icon_url)
 
-    def set_thumbnail(
-        self, *, img: Optional[discord.File] = None, url: Optional[str | discord.Asset] = "attachment://thumbnail-icon.png"
-    ) -> Self:
+    def set_thumbnail(self, *, img: Optional[discord.File] = None, url: Optional[str | discord.Asset] = None) -> Self:
         """Set the Thumbnail Image of the Embedd.
+
+        .. warning::
+            ``url`` defaults to `None` rather than to `attachment://thumbnail-icon.png` — see the same note on
+            :meth:`set_footer`. The attachment URL is only emitted when a file is actually riding along.
 
         Parameters
         ----------
         img: :class:`Optional[discord.File]`, optional
             A pre-built discord.File object that will be set as :property:`self.thumbnail_icon` and the URL set to `attachment://thumbnail-icon.png`,
             by default `None`.
-        url: :class:`_type_`, optional
-            The icon url parameter for `super().set_thumbnail(url)`, by default "attachment://thumbnail-icon.png".
+        url: :class:`Optional[str | discord.Asset]`, optional
+            The icon url parameter for `super().set_thumbnail(url)`, by default `None` (no thumbnail).
 
         Returns
         -------
@@ -362,7 +402,13 @@ class KumaEmbed(Embed):
             Returns a :class:`Self` for fluent code typing.
 
         """
+        # `img` wins over `url` — matches :meth:`set_image`, and attaching a file we then refuse to
+        # reference would upload the thumbnail without ever displaying it.
         if img is not None:
             self.thumbnail_icon = img
+            return super().set_thumbnail(url="attachment://thumbnail-icon.png")
+
+        if url is None and isinstance(self.thumbnail_icon, discord.File):
+            return super().set_thumbnail(url="attachment://thumbnail-icon.png")
 
         return super().set_thumbnail(url=url)

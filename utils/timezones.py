@@ -1,4 +1,7 @@
-"""Source: https://github.com/Rapptz/RoboDanny/blob/rewrite/cogs/reminder.py"""
+"""Timezone lookup helpers, adapted from RoboDanny.
+
+Source: https://github.com/Rapptz/RoboDanny/blob/rewrite/cogs/reminder.py.
+"""
 
 from __future__ import annotations
 
@@ -40,7 +43,7 @@ DEFAULT_POPULAR_TIMEZONE_IDS = (
     "esmad",  # Europe/Madrid
     "deber",  # Europe/Berlin
     "grath",  # Europe/Athens
-    "uaiev",  # Europe/Kyev
+    "uaiev",  # Europe/Kyiv
     "itrom",  # Europe/Rome
     "nlams",  # Europe/Amsterdam
     "plwaw",  # Europe/Warsaw
@@ -75,12 +78,27 @@ _timezone_aliases: dict[str, str] = {
 
 
 async def parse_bcp47_timezones() -> list[app_commands.Choice[str]]:
+    """Builds the popular-timezone choices from the CLDR BCP47 timezone table.
+
+    Also fills in :data:`_timezone_aliases`, mapping a human description ("Eastern Time") onto the
+    IANA name it resolves to, following CLDR's `preferred` entries where one is given.
+
+    Returns
+    -------
+    :class:`list[app_commands.Choice[str]]`
+        One choice per entry in :data:`DEFAULT_POPULAR_TIMEZONE_IDS`; empty when the request fails.
+
+    """
+    # The session is the context manager, not just the request. The early `return` on a non-200 used
+    # to jump out with the session still open, leaking a connector and an "Unclosed client session"
+    # warning; closing it at the bottom only ever ran on the happy path.
     _default_timezones: list[app_commands.Choice[str]] = []
-    session = aiohttp.ClientSession()
-    async with session.get("https://raw.githubusercontent.com/unicode-org/cldr/main/common/bcp47/timezone.xml") as resp:
+    async with (
+        aiohttp.ClientSession() as session,
+        session.get("https://raw.githubusercontent.com/unicode-org/cldr/main/common/bcp47/timezone.xml") as resp,
+    ):
         if resp.status != 200:
             return _default_timezones
-        # await session.close()
 
         parser = etree.XMLParser(ns_clean=True, recover=True, encoding="utf-8")
         tree = etree.fromstring(await resp.read(), parser=parser)
@@ -95,8 +113,7 @@ async def parse_bcp47_timezones() -> list[app_commands.Choice[str]]:
             )
             for node in tree.iter("type")
             # Filter the Etc/ entries (except UTC)
-            if not node.attrib["name"].startswith(("utcw", "utce", "unk"))
-            and not node.attrib["description"].startswith("POSIX")
+            if not node.attrib["name"].startswith(("utcw", "utce", "unk")) and not node.attrib["description"].startswith("POSIX")
         }
 
         for entry in entries.values():
@@ -117,7 +134,6 @@ async def parse_bcp47_timezones() -> list[app_commands.Choice[str]]:
             if entry is not None:
                 _default_timezones.append(app_commands.Choice(name=entry.description, value=entry.aliases[0]))
 
-    await session.close()
     return _default_timezones
 
 
@@ -129,5 +145,17 @@ class CLDRDataEntry(NamedTuple):
 
 
 async def convert_timezones(tz: str) -> datetime.datetime:
-    conv_time: datetime.datetime = datetime.datetime.astimezone(discord.utils.utcnow(), tz=pytz.timezone(tz))
-    return conv_time
+    """Returns the current time in the named timezone.
+
+    Parameters
+    ----------
+    tz: :class:`str`
+        An IANA timezone name, eg. `America/New_York`.
+
+    Returns
+    -------
+    :class:`datetime.datetime`
+        Now, as an aware datetime in that zone.
+
+    """
+    return datetime.datetime.astimezone(discord.utils.utcnow(), tz=pytz.timezone(tz))

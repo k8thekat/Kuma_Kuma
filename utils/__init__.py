@@ -24,9 +24,13 @@ import types
 from types import ModuleType
 from typing import TYPE_CHECKING
 
+from .animation import *
+from .codeblocks import *
 from .cog import *
 from .context import *
 from .embeds import *
+from .error import *
+from .help import *
 from .ui import *
 
 if TYPE_CHECKING:
@@ -72,7 +76,7 @@ def reload_module_dependencies(module_path: str, /, *, package_root: str = "util
 
     def visit(module: ModuleType) -> None:
         # Guard against re-visiting and circular imports (A imports B, B imports
-        # A) -- mark `seen` *before* recursing.
+        # A) — mark `seen` *before* recursing.
         if module.__name__ in seen:
             return
         seen.add(module.__name__)

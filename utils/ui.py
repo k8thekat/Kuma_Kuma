@@ -161,9 +161,14 @@ class KumaView[V: KumaCog](discord.ui.View):
 
     @property
     def indx(self) -> int:
-        """Index into :attr:`embeds`, clamped to the sequence length."""
+        """Index into :attr:`embeds`, clamped to the last valid index.
+
+        .. note::
+            Clamps to ``len(embeds) - 1``, not ``len(embeds)`` — the latter is one past the end and
+            would raise :class:`IndexError` on the very lookup this property exists to make safe.
+        """
         if self.embeds is not None and self._indx > len(self.embeds) - 1:
-            return len(self.embeds)
+            return len(self.embeds) - 1
         return self._indx
 
     @indx.setter
@@ -307,6 +312,32 @@ class KumaView[V: KumaCog](discord.ui.View):
         else:
             await interaction.response.edit_message(view=view)
 
+    def page_embed(self, embeds: Sequence[KumaEmbed]) -> KumaEmbed:
+        """Returns the embed for the current page, adding a page-number footer only if it has none.
+
+        .. warning::
+            This deliberately does **not** overwrite an existing footer. Doing so destroys anything the
+            caller put there — `claude.py` writes the run cost into the final page's footer and
+            `ollama.py` the token count — and since the embed is mutated in place the original text is
+            lost for good, not just for the current render. Callers that want page numbers alongside
+            their own text should build both into the footer themselves.
+
+        Parameters
+        ----------
+        embeds: :class:`Sequence[KumaEmbed]`
+            The view's embeds; passed in so the caller's `None` check narrows the type.
+
+        Returns
+        -------
+        :class:`KumaEmbed`
+            The embed to display for :attr:`indx`.
+
+        """
+        embed: KumaEmbed = embeds[self.indx]
+        if embed.footer.text is None:
+            embed.set_footer(text=f"{self.indx + 1} out of {len(embeds)} | Kuma Kuma Bear")
+        return embed
+
     @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary, disabled=True, row=1)
     async def previous_callback(self, interaction: discord.Interaction, item: discord.ui.Button[Self]) -> None:
         LOGGER.debug("<%s.%s>", __class__.__name__, "previous_callback")
@@ -316,18 +347,18 @@ class KumaView[V: KumaCog](discord.ui.View):
             return
 
         self.recent_interaction = interaction
-        # Sanity check in case indx somehow underflows.
-        if self.indx >= 0:
+        # Guard against underflow: on the first page there is nothing to go back to, and decrementing
+        # would leave indx at -1, which silently renders `embeds[-1]` — the *last* page.
+        if self.indx > 0:
             self.indx -= 1
-            if self.indx < len(self.embeds) - 1:
-                self.next_callback.disabled = False
-            if self.indx == 0:
-                item.disabled = True
 
-            embed: KumaEmbed = self.embeds[self.indx].set_footer(
-                text=f"{self.indx + 1} out of {len(self.embeds)} | Kuma Kuma Bear",
-            )
-            await interaction.response.edit_message(embed=embed, view=self, attachments=embed.attachments)
+        if self.indx < len(self.embeds) - 1:
+            self.next_callback.disabled = False
+        if self.indx == 0:
+            item.disabled = True
+
+        embed: KumaEmbed = self.page_embed(self.embeds)
+        await interaction.response.edit_message(embed=embed, view=self, attachments=embed.attachments)
 
     @discord.ui.button(label="Next", style=discord.ButtonStyle.green, disabled=False, row=1)
     async def next_callback(self, interaction: discord.Interaction, item: discord.ui.Button[Self]) -> None:
@@ -345,9 +376,7 @@ class KumaView[V: KumaCog](discord.ui.View):
             self.previous_callback.disabled = False
             if self.indx == len(self.embeds) - 1:
                 item.disabled = True
-            embed: KumaEmbed = self.embeds[self.indx].set_footer(
-                text=f"{self.indx + 1} out of {len(self.embeds)} | Kuma Kuma Bear",
-            )
+            embed: KumaEmbed = self.page_embed(self.embeds)
             await interaction.response.edit_message(embed=embed, view=self, attachments=embed.attachments)
             return
         self.reset_view()

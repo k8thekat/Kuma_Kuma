@@ -26,3 +26,4 @@ local.py
 *kuma_kuma.egg-info
 .claude_attachments/*
 .claude_ask/*
+*.claude*
