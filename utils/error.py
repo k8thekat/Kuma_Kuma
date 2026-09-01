@@ -36,12 +36,14 @@ import logging
 import traceback as tb_module
 from hashlib import sha256
 from io import BytesIO
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import discord
-from asqlite import Pool
 
 from .cog import KumaEmojiTable
+
+if TYPE_CHECKING:
+    from asqlite import Pool
 
 __all__ = ("cleanup_old_occurrences", "report_error", "setup_error_tables", "setup_errors")
 
@@ -172,6 +174,7 @@ async def cleanup_old_occurrences(pool: Pool, *, days: int = 7) -> int:
     """Deletes occurrence rows older than *days*, returning how many were removed.
 
     The ``errors`` table is left alone; its ``count`` and ``first_seen`` are lifetime stats.
+
     """
     cutoff: str = (datetime.datetime.now(tz=datetime.UTC) - datetime.timedelta(days=days)).isoformat()
     async with pool.acquire() as conn:
@@ -303,9 +306,9 @@ async def report_error(
         The command name.
     command_type: :class:`str`
         ``"prefix"`` or ``"app"``.
-    user: :class:`discord.User | discord.Member`
+    user: :class:`Union[discord.User, discord.Member]`
         Who triggered the command.
-    guild: :class:`discord.Guild | None`, optional
+    guild: :class:`Optional[discord.Guild]`, optional
         The guild, if any.
     channel: optional
         The channel.
@@ -315,10 +318,10 @@ async def report_error(
     trace: list[str] = tb_module.format_exception(type(error), error, error.__traceback__)
     traceback_text: str = "".join(trace)
 
-    g_id: Optional[int] = guild.id if guild else None
-    g_name: Optional[str] = guild.name if guild else None
-    ch_id: Optional[int] = getattr(channel, "id", None)
-    ch_name: Optional[str] = _channel_name(channel)
+    guild_id: Optional[int] = guild.id if guild else None
+    guild_name: Optional[str] = guild.name if guild else None
+    channel_id: Optional[int] = getattr(channel, "id", None)
+    channel_name: Optional[str] = _channel_name(channel)
 
     count: int = 1
     first_seen: datetime.datetime = now
@@ -331,10 +334,10 @@ async def report_error(
             command_type=command_type,
             user_id=user.id,
             user_name=str(user),
-            guild_id=g_id,
-            guild_name=g_name,
-            channel_id=ch_id,
-            channel_name=ch_name,
+            guild_id=guild_id,
+            guild_name=guild_name,
+            channel_id=channel_id,
+            channel_name=channel_name,
         )
     except Exception:
         LOGGER.exception("<%s> | Could not record an error to the database:", "report_error")
@@ -344,10 +347,10 @@ async def report_error(
         command_type=command_type,
         user_name=str(user),
         user_id=user.id,
-        guild_name=g_name,
-        guild_id=g_id,
-        channel_name=ch_name,
-        channel_id=ch_id,
+        guild_name=guild_name,
+        guild_id=guild_id,
+        channel_name=channel_name,
+        channel_id=channel_id,
         traceback_text=traceback_text,
         error_count=count,
         first_seen=first_seen,

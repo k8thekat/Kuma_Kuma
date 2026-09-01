@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import datetime
 import logging
-from typing import TYPE_CHECKING, Any, NotRequired, Optional, Self, TypedDict, Unpack
+from typing import TYPE_CHECKING, Any, NotRequired, Optional, Self, TypedDict, Union, Unpack
 
 import discord
 
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from .cog import KumaCog
     from .embeds import KumaEmbed
 
-LOGGER = logging.getLogger()
+LOGGER = logging.getLogger(__name__)
 
 __all__ = ("GenericButton", "KumaView")
 
@@ -45,17 +45,17 @@ class ViewParams(TypedDict):
     ------
     cog: :class:`KumaCog`
         The Cog that dispatched the view.
-    owner: :class:`discord.Member | discord.User`
+    owner: :class:`Union[discord.Member, discord.User]`
         The Member or User who dispatched the view/interaction.
-    embeds: :class:`Sequence[KumaEmbed] | None`
+    embeds: :class:`Optional[Sequence[KumaEmbed]]`
         The Embeds associated with the view, if applicable.
     recent_interaction: :class:`NotRequired[Optional[discord.Interaction]]`
         The most recent :class:`discord.Interaction` that sent content.
     components: :class:`NotRequired[list[discord.ui.Item]]`
         Any Items to pre-append to the View and display during ``__init__``.
-    dispatched_by: :class:`Optional[KumaView | discord.ui.Button[KumaView]]`
+    dispatched_by: :class:`Optional[Union[KumaView, discord.ui.Button[KumaView]]]`
         The Object that dispatched the View.
-    timeout: :class:`NotRequired[float | None]`
+    timeout: :class:`NotRequired[Optional[float]]`
         Default View timeout parameter.
     """
 
@@ -65,13 +65,13 @@ class ViewParams(TypedDict):
     "The most recent :class:`discord.Interaction` that sent content.."
     components: NotRequired[list[discord.ui.Item]]
     "Any Items to pre-append to the View and display during `__init__`"
-    owner: discord.Member | discord.User
+    owner: Union[discord.Member, discord.User]
     "The Member or User who dispatched the view/interaction."
-    embeds: Sequence[KumaEmbed] | None
+    embeds: Optional[Sequence[KumaEmbed]]
     "The Embeds associated with the view, if applicable."
-    dispatched_by: NotRequired[Optional[KumaView | discord.ui.Button[KumaView]]]
+    dispatched_by: NotRequired[Optional[Union[KumaView, discord.ui.Button[KumaView]]]]
     "Who dispatched the View..."
-    timeout: NotRequired[float | None]
+    timeout: NotRequired[Optional[float]]
     "Default View timeout parameter."
 
 
@@ -82,34 +82,34 @@ class ViewParamsPartial(TypedDict):
     ------
     cog: :class:`KumaCog`
         The Cog that dispatched the view.
-    owner: :class:`discord.Member | discord.User`
+    owner: :class:`Union[discord.Member, discord.User]`
         The Member or User who dispatched the view/interaction.
     recent_interaction: :class:`NotRequired[Optional[discord.Interaction]]`
         The most recent :class:`discord.Interaction` that sent content.
     components: :class:`NotRequired[list[discord.ui.Item]]`
         Any Items to pre-append to the View and display during ``__init__``.
-    embeds: :class:`NotRequired[Sequence[KumaEmbed] | None]`
+    embeds: :class:`NotRequired[Optional[Sequence[KumaEmbed]]]`
         The Embeds associated with the view, if applicable.
-    dispatched_by: :class:`NotRequired[Optional[KumaView | discord.ui.Button[KumaView]]]`
+    dispatched_by: :class:`NotRequired[Optional[Union[KumaView, discord.ui.Button[KumaView]]]]`
         The Object that dispatched the View.
-    timeout: :class:`NotRequired[float | None]`
+    timeout: :class:`NotRequired[Optional[float]]`
         Default View timeout parameter.
 
     """
 
     cog: KumaCog
     "The Cog that dispatched the view."
-    owner: discord.Member | discord.User
+    owner: Union[discord.Member, discord.User]
     "The Member or User who dispatched the view/interaction."
     recent_interaction: NotRequired[Optional[discord.Interaction]]
     "The most recent :class:`discord.Interaction` that sent content.."
     components: NotRequired[list[discord.ui.Item]]
     "Any Items to pre-append to the View and display during `__init__`"
-    embeds: NotRequired[Sequence[KumaEmbed] | None]
+    embeds: NotRequired[Optional[Sequence[KumaEmbed]]]
     "The Embeds associated with the view, if applicable."
-    dispatched_by: NotRequired[Optional[KumaView | discord.ui.Button[KumaView]]]
+    dispatched_by: NotRequired[Optional[Union[KumaView, discord.ui.Button[KumaView]]]]
     "Who dispatched the View..."
-    timeout: NotRequired[float | None]
+    timeout: NotRequired[Optional[float]]
     "Default View timeout parameter."
 
 
@@ -124,7 +124,7 @@ class KumaView[V: KumaCog](discord.ui.View):
 
     Attributes
     ----------
-    owner: :class:`discord.Member | discord.User`
+    owner: :class:`Union[discord.Member, discord.User]`
         The Discord User or Member who started the interaction.
     cog: :class:`KumaCog`
         The parent Cog.
@@ -132,7 +132,7 @@ class KumaView[V: KumaCog](discord.ui.View):
         The most recent interaction that sent content, by default ``None``.
     components: :class:`list[discord.ui.Item[Any]]`
         Items that will be re-added to the view when :meth:`reset_view` is called.
-    dispatched_by: :class:`Optional[KumaView | discord.ui.Button[KumaView]]`
+    dispatched_by: :class:`Optional[Union[KumaView, discord.ui.Button[KumaView]]]`
         What spawned this view, if applicable.
     embeds: :class:`Optional[Sequence[KumaEmbed]]`
         The embeds attached to the view, if applicable.
@@ -143,7 +143,7 @@ class KumaView[V: KumaCog](discord.ui.View):
 
     """
 
-    owner: discord.Member | discord.User
+    owner: Union[discord.Member, discord.User]
     "The Discord User or Member who started the interaction."
     cog: V
     "The parent Cog."
@@ -151,7 +151,7 @@ class KumaView[V: KumaCog](discord.ui.View):
     "The most recent interaction that sent content."
     components: list[discord.ui.Item[Any]]
     "Items to re-add when reset_view() is called."
-    dispatched_by: Optional[KumaView | discord.ui.Button[KumaView]]
+    dispatched_by: Optional[Union[KumaView, discord.ui.Button[KumaView]]]
     "What spawned this view."
     _embeds: Optional[Sequence[KumaEmbed]]
     _indx: int
@@ -187,19 +187,19 @@ class KumaView[V: KumaCog](discord.ui.View):
     def __init__(
         self,
         *,
-        owner: discord.Member | discord.User,
+        owner: Union[discord.Member, discord.User],
         cog: V,
         embeds: Optional[Sequence[KumaEmbed]] = None,
         components: Optional[list[discord.ui.Item[Any]]] = None,
         recent_interaction: Optional[discord.Interaction] = None,
-        dispatched_by: Optional[KumaView | discord.ui.Button[KumaView]] = None,
+        dispatched_by: Optional[Union[KumaView, discord.ui.Button[KumaView]]] = None,
         timeout: Optional[float] = 180,
     ) -> None:
         """Create a :class:`KumaView` instance.
 
         Parameters
         ----------
-        owner: :class:`discord.Member | discord.User`
+        owner: :class:`Union[discord.Member, discord.User]`
             The Discord User or Member who started the interaction.
         cog: :class:`KumaCog`
             The parent Cog. Used to generate :attr:`ts_string`.
@@ -209,7 +209,7 @@ class KumaView[V: KumaCog](discord.ui.View):
             Additional items to add immediately and restore on :meth:`reset_view`.
         recent_interaction: :class:`Optional[discord.Interaction]`, optional
             The most recent interaction, by default ``None``.
-        dispatched_by: :class:`Optional[Self | discord.ui.Button[Self]]`, optional
+        dispatched_by: :class:`Optional[Union[Self, discord.ui.Button[Self]]]`, optional
             What spawned this view, by default ``None``.
         timeout: :class:`Optional[float]`, optional
             Seconds before the view stops accepting input, by default ``180``.

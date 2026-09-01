@@ -16,7 +16,7 @@ from dateutil.zoneinfo import get_zonefile_instance
 from discord import app_commands
 from discord.ext import commands
 from discord.ext.commands import Context  # This should point to your custom bot context
-from lxml import etree
+from lxml import etree  # type: ignore[attr-defined]  # lxml ships no type stubs
 
 import utils.fuzzy as fuzzy
 

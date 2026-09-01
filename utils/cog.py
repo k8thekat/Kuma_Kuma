@@ -35,6 +35,7 @@ from discord.ext import commands
 from lemminflect import getInflection  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
 
 from .animation import AnimationFrames, AnimationStyle, AnimationTarget, KumaAnimation
+from .context import _normalize_emoji_followup
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -43,7 +44,7 @@ if TYPE_CHECKING:
 
     from kuma_kuma import Kuma_Kuma
 
-    from ._types import Metrics, Uptime
+    from ._types import EmojiFollowup, Metrics, Uptime
 
 __all__ = ("ROTATE_WINDOW", "FFXIVResources", "KumaCog", "KumaEmojiTable", "KumaResources")
 
@@ -123,6 +124,7 @@ class UnicodeTable:
     bar_chart: str = "\U0001f4ca"  # BAR CHART - 📊 — 📊 — http://www.fileformat.info/info/unicode/char/1f4ca
     no_one_under_eighteen: str = "\U0001f51e"  # NO ONE UNDER EIGHTEEN SYMBOL - 🔞 — 🔞 — http://www.fileformat.info/info/unicode/char/1f51e
     ```
+
     """
 
     middle_dot: str = "\U000030fb"
@@ -177,7 +179,7 @@ class KumaEmojiTable:
     # compared the ID against the whole `<:name:id>` string, so an ID lookup always raised.
     # Use the attribute directly, or `get_emoji()` when the name is only known at runtime.
     # @staticmethod
-    # def to_inline_emoji(emoji: Union[str, int]) -> str | None:
+    # def to_inline_emoji(emoji: Union[str, int]) -> Optional[str]:
     #     """Converts the emoji provided into a Discord in line str type emoji for usage.
     #
     #     Parameters
@@ -320,7 +322,7 @@ class KumaCog(commands.Cog):
         Returns
         -------
         :class:`Metrics`
-            _description_.
+            The current cog's metrics, keyed by owning cog name.
 
         """
         return self._metrics
@@ -334,6 +336,7 @@ class KumaCog(commands.Cog):
 
         Set's self.bot, self.message_timeout.
         - Set's the Cogs start time using :class:`time.time()`
+
         """
         self.bot = bot
         self.message_timeout = bot.message_timeout
@@ -342,12 +345,68 @@ class KumaCog(commands.Cog):
         # reading `self.metrics[<its own name>]` only worked if it overwrote the dict itself.
         self.metrics = {type(self).__name__: {"uptime": {"start": datetime.datetime.now(tz=datetime.UTC)}}}
 
-    async def get_guild(self) -> discord.Guild | None:
+    async def resolve_cdn_emoji(
+        self,
+        *,
+        name: str,
+        emoji_id: int,
+        animated: bool = True,
+    ) -> tuple[discord.PartialEmoji, Optional[bytes]]:
+        """Build a :class:`PartialEmoji`, probing the CDN to verify animation support.
+
+        When *animated* is ``True``, reads the ``.gif`` variant from the CDN. If
+        Discord returns **415 Unsupported Media Type** (the emoji has no animated
+        variant), retries with ``animated=False``. The successfully read bytes are
+        returned so the caller can cache them and skip a second fetch at copy time.
+
+        Parameters
+        ----------
+        name: :class:`str`
+            Display name for the emoji.
+        emoji_id: :class:`int`
+            The emoji's snowflake ID.
+        animated: :class:`bool`, optional
+            Initial guess, by default ``True``. When ``False`` no probe runs and
+            the returned bytes are ``None``.
+
+        Returns
+        -------
+        tuple[:class:`discord.PartialEmoji`, :class:`Optional[bytes]`]
+            The wired emoji and, when a probe succeeded, the raw image bytes.
+            ``None`` bytes when no probe ran — the caller should ``emoji.read()``
+            as usual.
+
+        """
+        partial: discord.PartialEmoji = discord.PartialEmoji.with_state(
+            self.bot.connection_state,
+            name=name,
+            animated=animated,
+            id=emoji_id,
+        )
+        if not animated:
+            return partial, None
+
+        try:
+            data: bytes = await partial.read()
+        except discord.HTTPException as exc:
+            if exc.status == 415:
+                fallback: discord.PartialEmoji = discord.PartialEmoji.with_state(
+                    self.bot.connection_state,
+                    name=name,
+                    animated=False,
+                    id=emoji_id,
+                )
+                return fallback, None
+            raise
+        else:
+            return partial, data
+
+    async def get_guild(self) -> Optional[discord.Guild]:
         """Returns the owners guild. In this instance `Neko Neko Cafe`.
 
         Returns
         -------
-        :class:`discord.Guild | None`
+        :class:`Optional[discord.Guild]`
             A discord Guild object, otherwise None.
 
         """
@@ -381,7 +440,7 @@ class KumaCog(commands.Cog):
             The TypedDict describing one row. eg. `ModeratorSettings`.
         exclude: :class:`Iterable[str]`, optional
             Keys to leave out on top of :attr:`settings_excluded_keys`, for a column that is not a
-            user facing setting.
+            user facing setting, by default ``()``.
 
         Returns
         -------
@@ -559,7 +618,22 @@ class KumaCog(commands.Cog):
         """
         return KumaAnimation(target, label=label, style=style, **kwargs)
 
-    async def get_request(self, *, url: str, **request_params: Unpack[AioHTTPRequestOptions]) -> bytes | None:
+    async def get_request(self, *, url: str, **request_params: Unpack[AioHTTPRequestOptions]) -> Optional[bytes]:
+        """Perform a GET request using the bot's shared session.
+
+        Parameters
+        ----------
+        url: :class:`str`
+            The URL to request.
+        **request_params: :class:`Unpack[AioHTTPRequestOptions]`
+            Additional keyword arguments forwarded to :meth:`aiohttp.ClientSession.get`.
+
+        Returns
+        -------
+        :class:`Optional[bytes]`
+            The response body, or ``None`` on failure.
+
+        """
         try:
             async with self.bot.session.get(url=url, **request_params) as session:
                 if session.status >= 200 and session.status < 300:
@@ -567,12 +641,69 @@ class KumaCog(commands.Cog):
         except (TimeoutError, aiohttp.ClientError) as e:
             LOGGER.warning(
                 "<%s.%s> | Connection failed. | URL: %s | Error: %s",
-                __class__.__name__,
+                type(self).__name__,
                 "get_request",
                 url,
                 e,
             )
         return None
+
+    async def emoji_followup(
+        self,
+        destination: Union[discord.abc.Messageable, discord.Interaction],
+        emoji: EmojiFollowup,
+    ) -> discord.Message:
+        """Send emoji as a standalone message so Discord renders them large.
+
+        Use this outside of :class:`KumaContext` — event handlers, tasks, listeners — anywhere a
+        cog has a :class:`~discord.abc.Messageable` or a :class:`discord.Interaction` but not a
+        command context. Inside a command, prefer the ``emoji_followup`` parameter on
+        :meth:`KumaContext.send` / :meth:`KumaContext.reply` instead.
+
+        When a :class:`discord.Interaction` is passed, the emoji is sent as a plain channel message
+        (not an interaction response), so the interaction must have a resolvable channel.
+
+        .. code-block:: python
+
+            # In an event handler or task:
+            await self.emoji_followup(channel, self.emoji_table.kuma_happy)
+
+            # After responding to an interaction:
+            await interaction.response.send_message("Done!")
+            await self.emoji_followup(interaction, self.emoji_table.kuma_star_eye)
+
+            # Multiple emoji, joined with spaces:
+            await self.emoji_followup(channel, [self.emoji_table.kuma_happy, self.emoji_table.kuma_rawr])
+
+        Parameters
+        ----------
+        destination: :class:`Union[discord.abc.Messageable, discord.Interaction]`
+            Where to send the emoji — a channel, thread, user DM, or an interaction whose channel
+            will be resolved automatically.
+        emoji: :data:`EmojiFollowup`
+            One or more emoji to send. Accepts a plain inline string, a :class:`discord.Emoji`,
+            a :class:`discord.PartialEmoji`, or a sequence of any of those (space-joined).
+
+        Returns
+        -------
+        :class:`discord.Message`
+            The sent emoji message.
+
+        Raises
+        ------
+        RuntimeError
+            The interaction has no channel to send to.
+
+        """
+        content: str = _normalize_emoji_followup(emoji)
+        # Interactions are not Messageable; resolve the underlying channel.
+        if isinstance(destination, discord.Interaction):
+            raw_channel = destination.channel
+            if raw_channel is None or not isinstance(raw_channel, discord.abc.Messageable):
+                msg: str = "Cannot send an emoji followup — the interaction has no sendable channel."
+                raise RuntimeError(msg)
+            return await raw_channel.send(content)
+        return await destination.send(content)
 
 
 # region --- Moogle Intuition / FFXIV
@@ -787,7 +918,7 @@ class FFXIVResources:
 
     @classmethod
     def get_patch_icon(cls, patch_id: float, filename: str = "patch-icon.png") -> discord.File:
-        """get_patch_icon _summary_.
+        """Get the expansion patch icon for a given patch ID.
 
         .. note::
             - 1: "patch_icon/arr-icon.png",
@@ -801,13 +932,13 @@ class FFXIVResources:
         ----------
         patch_id: :class:`float`
             The ICON ID in reference to `patch_mapping`.
-        filename: :class:`str`
-            The filename parameter for the `discord.File` object.
+        filename: :class:`str`, optional
+            The filename parameter for the `discord.File` object, by default `"patch-icon.png"`.
 
         Returns
         -------
         :class:`discord.File`
-            _description_.
+            A discord.File object of the requested patch icon.
 
         """
         file_path = cls.patch_mapping.get(int(patch_id), cls.patch_mapping[1])
@@ -833,8 +964,8 @@ class FFXIVResources:
 
         Parameters
         ----------
-        filename: :class:`str`
-            The filename parameter for the `discord.File` object.
+        filename: :class:`str`, optional
+            The filename parameter for the `discord.File` object, by default `"universalis-icon.png"`.
 
         Returns
         -------
@@ -878,8 +1009,8 @@ class FFXIVResources:
 
         Parameters
         ----------
-        filename: :class:`str`
-            The filename parameter for the `discord.File` object.
+        filename: :class:`str`, optional
+            The filename parameter for the `discord.File` object, by default `"moogle-icon.png"`.
 
         Returns
         -------

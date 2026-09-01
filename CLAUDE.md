@@ -6,8 +6,7 @@ Use `KumaEmoji` styling when sending replies and errors.
 
 ## Code style
 
-Derived from the existing source; `claude.py` and `utils/animation.py` are the reference files when
-two patterns disagree. `ruff` config lives in `pyproject.toml` — run `ruff check <files>` on anything
+Derived from the existing source. `ruff` config lives in `pyproject.toml` — run `ruff check <files>` on anything
 touched and leave it clean. Pre-existing errors in files you did not touch are not yours to fix
 unless asked.
 
@@ -65,8 +64,10 @@ Per `~/gitHub/CLAUDE.md`: comment whenever possible, high level, explaining *why
 The established habit here is a comment above a block explaining the reasoning or the trap it avoids,
 not a running narration.
 
-- **No abbreviated names.** Not in parameters, not in locals, not in comprehensions:
-  `for attachment in ...`, never `for a in ...`.
+- **Abbreviated names are fine for common short-lived locals** — `e` / `err` for exceptions,
+  `res` for results, loop counters, and similar cases where meaning is obvious from context.
+  Avoid them in parameters, class attributes, and longer-lived variables where the intent
+  isn't immediately clear: `for attachment in ...`, not `for a in ...`.
 - Line length is **140**.
 - **Never ` -- ` as an aside separator.** Use a real em dash, `—`. Measured across the repo before
   this rule was written: 0 occurrences of ` -- ` in any comment or docstring k8thekat wrote, against
@@ -89,10 +90,13 @@ not a running narration.
 
 ### Discord
 
-- Set `allowed_mentions` explicitly on every send; exactly one thing in a flow should be allowed to
-  notify. See `~/.claude/skills/discord-py/` for the behavioural traps.
+- Set `allowed_mentions` on important responses or long-timed responses where an accidental ping would
+  be disruptive; not every send needs it. See `~/.claude/skills/discord-py/` for the behavioural traps.
 - Components V2 (`LayoutView`) cannot carry `content` or `embeds`, but *can* carry attachments.
-- `KumaEmojiTable` for emoji, `KumaResources` for image paths — never hardcode either.
+- `KumaEmojiTable` for emoji in text and replies, `KumaResources` for image paths. Unicode emoji and
+  default Discord emoji (🔍, 🔄, 🗑️, ➕, etc.) are fine for button styling and visual markers where
+  no kuma or unicode table entry fits the intent. `UnicodeTable` for structural characters (middle
+  dot, star, arrows).
 - **Markdown tables do not render in Discord.** `| a | b |` with a `|---|` rule arrives as literal
   pipes and dashes, separator row and all. This applies to every string the bot sends *and* to every
   reply written into a thread. Discord markdown is otherwise excellent, so use it:

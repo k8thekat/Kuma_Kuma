@@ -111,7 +111,7 @@ class CodeFormat(StrEnum):
 
 
 _FORMAT_NOTES: dict[CodeFormat, str] = {
-    CodeFormat.ANSI: "Not a highlight.js language -- a Discord extension honouring real SGR escapes. The only arbitrary colour we get.",
+    CodeFormat.ANSI: "Not a highlight.js language — a Discord extension honouring real SGR escapes. The only arbitrary colour we get.",
     CodeFormat.DIFF: "Leading '+' green, '-' red, '@@ .. @@' teal. Free pass/fail colouring for status lines.",
     CodeFormat.FIX: "Colours the entire block gold. Banners and warnings.",
     CodeFormat.INI: "'[section]' headers, 'key = value' pairs, ';' comments grey. Config-panel look.",
@@ -119,13 +119,13 @@ _FORMAT_NOTES: dict[CodeFormat, str] = {
     CodeFormat.JSON: "Keys, strings and numbers each tinted. Only clean on genuinely valid JSON.",
     CodeFormat.HTTP: "Method, URL and header names each get their own tint. Request/response dumps.",
     CodeFormat.CSS: "Selectors one colour, properties another. Two-tone without needing valid CSS.",
-    CodeFormat.MARKDOWN: "'#' headings, '>' quotes and list bullets coloured -- markdown shown, not rendered.",
+    CodeFormat.MARKDOWN: "'#' headings, '>' quotes and list bullets coloured — markdown shown, not rendered.",
     CodeFormat.BASH: "Quoted strings and '$VAR' pop against plain text. Command transcripts.",
     CodeFormat.EXCEL: "Excel formulas. Function-like words tint; good for a warm, uniform block.",
-    CodeFormat.GCODE: "Alias for G-Code. Bare words tint heavily -- reads as a machine trace.",
+    CodeFormat.GCODE: "Alias for G-Code. Bare words tint heavily — reads as a machine trace.",
     CodeFormat.OCAML: "Alias for OCaml/SML. Capitalised words and quoted strings colour.",
     CodeFormat.NIM: "Quoted strings and numbers pop; a cooler palette than 'ps'.",
-    CodeFormat.POWERSHELL: "Alias for PowerShell. Our log default -- '-flags' and quoted paths colour well.",
+    CodeFormat.POWERSHELL: "Alias for PowerShell. Our log default — '-flags' and quoted paths colour well.",
     CodeFormat.PROLOG: "'word(arg)' forms and quoted strings tint. Warm orange bias.",
     CodeFormat.RUBY: "Alias for Ruby. ':symbols' and quoted strings colour strongly.",
 }

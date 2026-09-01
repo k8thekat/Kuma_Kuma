@@ -1,0 +1,27 @@
+{
+    "cSpell.ignorePaths": [
+        "./docs/source/_static/*",
+        "./docs/nodes/*",
+        "*util.py"
+    ],
+    // "autoDocstring.docstringFormat": "numpy"
+    "autoDocstring.customTemplatePath": "/home/kat/gitHub/Kuma_Kuma/resources/numpy_templates/numpy_overwrite.mustache",
+    "autoDocstring.startOnNewLine": true,
+    "autoDocstring.quoteStyle": "\"\"\"",
+    "autoDocstring.guessTypes": true,
+    "autoDocstring.generateDocstringOnEnter": true,
+    "cSpell.words": [
+        "asqlite",
+        "Colour",
+        "dotenv",
+        "ispkg",
+        "Kuma",
+        "kwargs",
+        "ownderid",
+        "ownerid",
+        "prea",
+        "serverid",
+        "sextension"
+    ],
+    "python.terminal.activateEnvironment": true
+}

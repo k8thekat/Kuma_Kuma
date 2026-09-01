@@ -20,59 +20,38 @@ Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from discord.ext import commands
 
 if TYPE_CHECKING:
     import discord
-    from aiohttp import ClientSession
     from aiohttp_client_cache.session import CachedSession
 
     from kuma_kuma import Kuma_Kuma
 
-T = TypeVar("T")
+    from ._types import EmojiFollowup
 
 __all__ = ("KumaContext", "KumaGuildContext")
 
 
-# class DisambiguatorView(discord.ui.View, Generic[T]):
-#     message: discord.Message
-#     selected: T
+def _normalize_emoji_followup(emoji: EmojiFollowup) -> str:
+    """Collapse one or more emoji inputs into a single string for message content.
 
-#     def __init__(self, ctx: KumaContext, data: list[T], entry: Callable[[T], Any]):
-#         super().__init__()
-#         self.ctx: KumaContext = ctx
-#         self.data: list[T] = data
+    Strings pass through as-is, :class:`discord.Emoji` and :class:`discord.PartialEmoji` are
+    stringified via ``str()``, and sequences are space-joined so Discord still renders them large.
 
-#         options = []
-#         for i, x in enumerate(data):
-#             opt = entry(x)
-#             if not isinstance(opt, discord.SelectOption):
-#                 opt = discord.SelectOption(label=str(opt))
-#             opt.value = str(i)
-#             options.append(opt)
+    .. note::
+        Discord renders emoji large only when the message contains nothing else. Custom emoji cap
+        at 3 per message; unicode emoji are more generous (~27).
 
-#         select = discord.ui.Select(options=options)
-
-#         select.callback = self.on_select_submit
-#         self.select = select
-#         self.add_item(select)
-
-#     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-#         if interaction.user.id != self.ctx.author.id:
-#             await interaction.response.send_message('This select menu is not meant for you, sorry.', ephemeral=True)
-#             return False
-#         return True
-
-#     async def on_select_submit(self, interaction: discord.Interaction):
-#         index = int(self.select.values[0])
-#         self.selected = self.data[index]
-#         await interaction.response.defer()
-#         if not self.message.flags.ephemeral:
-#             await self.message.delete()
-
-#         self.stop()
+    """
+    if isinstance(emoji, str):
+        return emoji
+    # discord.Emoji / discord.PartialEmoji are not iterable; a list or tuple is a multi-emoji input.
+    if isinstance(emoji, (list, tuple)):
+        return " ".join(str(e) for e in emoji)
+    return str(emoji)
 
 
 class KumaContext(commands.Context["Kuma_Kuma"]):
@@ -90,27 +69,101 @@ class KumaContext(commands.Context["Kuma_Kuma"]):
         """
         return self.bot.session
 
-    # async def disambiguate(self, matches: list[T], entry: Callable[[T], Any], *, ephemeral: bool = False) -> T:
-    #     if len(matches) == 0:
-    #         raise ValueError('No results found.')
+    @property
+    def emoji_followup_message(self) -> Optional[discord.Message]:
+        """The most recent emoji followup sent from this context.
 
-    #     if len(matches) == 1:
-    #         return matches[0]
+        Set automatically by :meth:`send` or :meth:`reply` when an ``emoji_followup`` argument is
+        provided. Returns ``None`` when no followup has been sent yet.
 
-    #     if len(matches) > 25:
-    #         raise ValueError('Too many results... sorry.')
+        Returns
+        -------
+        :class:`Optional[discord.Message]`
+            The followup message, or ``None``.
 
-    #     view = DisambiguatorView(self, matches, entry)
-    #     view.message = await self.send(
-    #         'There are too many matches... Which one did you mean?', view=view, ephemeral=ephemeral
-    #     )
-    #     await view.wait()
-    #     return view.selected
+        """
+        return getattr(self, "_last_emoji_followup", None)
+
+    async def send(
+        self,
+        content: Any = None,
+        *,
+        track: bool = False,
+        emoji_followup: Optional[EmojiFollowup] = None,
+        **kwargs: Any,
+    ) -> discord.Message:
+        """Send a message, optionally recording it and/or sending a large-emoji followup.
+
+        Parameters
+        ----------
+        content: :class:`Any`, optional
+            The message content.
+        track: :class:`bool`, optional
+            Whether to record the sent message in ``bot.msg_history``, by default False.
+        emoji_followup: :data:`EmojiFollowup`, optional
+            One or more emoji to send as a standalone followup message so Discord renders them
+            large. Accepts a plain inline string, a :class:`discord.Emoji`, a
+            :class:`discord.PartialEmoji`, or a sequence of any of those (space-joined). The
+            followup message is accessible via :attr:`emoji_followup_message` afterward.
+        **kwargs: :class:`Any`
+            Passed through to :meth:`commands.Context.send`.
+
+        Returns
+        -------
+        :class:`discord.Message`
+            The sent message (the primary one, not the followup).
+
+        """
+        message: discord.Message = await super().send(content, **kwargs)
+        if track and hasattr(self.bot, "msg_history"):
+            await self.bot.msg_history.record(message)
+        if emoji_followup is not None:
+            self._last_emoji_followup: discord.Message = await self.channel.send(_normalize_emoji_followup(emoji_followup))
+        return message
+
+    async def reply(
+        self,
+        content: Any = None,
+        *,
+        track: bool = False,
+        emoji_followup: Optional[EmojiFollowup] = None,
+        **kwargs: Any,
+    ) -> discord.Message:
+        """Reply to the invoking message, optionally recording it and/or sending a large-emoji followup.
+
+        The followup is a plain ``channel.send``, not another reply, so it will not double-ping
+        the invoking user.
+
+        Parameters
+        ----------
+        content: :class:`Any`, optional
+            The message content.
+        track: :class:`bool`, optional
+            Whether to record the sent message in ``bot.msg_history``, by default False.
+        emoji_followup: :data:`EmojiFollowup`, optional
+            One or more emoji to send as a standalone followup message so Discord renders them
+            large. Accepts a plain inline string, a :class:`discord.Emoji`, a
+            :class:`discord.PartialEmoji`, or a sequence of any of those (space-joined). The
+            followup message is accessible via :attr:`emoji_followup_message` afterward.
+        **kwargs: :class:`Any`
+            Passed through to :meth:`commands.Context.reply`.
+
+        Returns
+        -------
+        :class:`discord.Message`
+            The sent message (the primary one, not the followup).
+
+        """
+        message: discord.Message = await super().reply(content, **kwargs)
+        if track and hasattr(self.bot, "msg_history"):
+            await self.bot.msg_history.record(message)
+        if emoji_followup is not None:
+            self._last_emoji_followup: discord.Message = await self.channel.send(_normalize_emoji_followup(emoji_followup))
+        return message
 
 
 class KumaGuildContext(KumaContext):
     author: discord.Member  # pyright: ignore[reportIncompatibleVariableOverride]
     guild: discord.Guild  # pyright: ignore[reportIncompatibleVariableOverride]
-    # channel: Union[discord.VoiceChannel, discord.TextChannel, discord.Thread]
     me: discord.Member  # pyright: ignore[reportIncompatibleVariableOverride]
-    channel: discord.VoiceChannel | discord.TextChannel | discord.Thread  # pyright: ignore[reportIncompatibleVariableOverride]
+    channel: Union[discord.VoiceChannel, discord.TextChannel, discord.Thread]  # pyright: ignore[reportIncompatibleVariableOverride]

@@ -146,6 +146,7 @@ class PanelMedia:
     keeps its existing attachments there is nothing to resolve against, and Discord rejects the whole
     payload with `50035 ... The referenced attachment was not found`. An already-uploaded image has
     to be pointed at by its CDN URL instead, which is what this carries.
+
     """
 
     banner: str
@@ -253,7 +254,7 @@ class KumaHelpPanel(discord.ui.LayoutView):
     cogs never re-runs command checks or touches the bot.
 
     .. warning::
-        A Components V2 message cannot carry `content` or `embeds`, but it *can* carry attachments --
+        A Components V2 message cannot carry `content` or `embeds`, but it *can* carry attachments —
         which is how the banner and thumbnail get here. How they are *referenced* differs between the
         first send and a later edit; see :class:`PanelMedia` and :meth:`rerender`.
 
@@ -288,7 +289,7 @@ class KumaHelpPanel(discord.ui.LayoutView):
 
         container.add_item(discord.ui.Separator())
         container.add_item(discord.ui.TextDisplay(f"-# {self._summary()}"))
-        # The banner closes the panel the way `/about` uses `set_image`, and only on the overview --
+        # The banner closes the panel the way `/about` uses `set_image`, and only on the overview —
         # a focused list is a working reference, and wants the room for commands instead.
         if focus is None:
             container.add_item(discord.ui.MediaGallery(discord.MediaGalleryItem(self.media.banner)))
@@ -370,9 +371,7 @@ class KumaHelpPanel(discord.ui.LayoutView):
 
         total: int = sum(len(section.entries) for section in self.sections)
         hidden: str = (
-            f" · {_plural(len(self.sections) - MAX_SELECT_OPTIONS, 'cog')} not listed"
-            if len(self.sections) > MAX_SELECT_OPTIONS
-            else ""
+            f" · {_plural(len(self.sections) - MAX_SELECT_OPTIONS, 'cog')} not listed" if len(self.sections) > MAX_SELECT_OPTIONS else ""
         )
         return f"{_plural(total, 'command')} · {_plural(len(self.sections), 'cog')}{hidden}"
 
@@ -382,6 +381,7 @@ class KumaHelpPanel(discord.ui.LayoutView):
         The images are already on the message, so the replacement points at their CDN URLs rather
         than re-uploading. If anything it needs is missing — going back to the overview after the
         banner was dropped — it uploads afresh instead, which makes the panel self-healing.
+
         """
         needed: tuple[str, ...] = (THUMBNAIL_NAME,) if selected else (BANNER_NAME, THUMBNAIL_NAME)
         media: Optional[PanelMedia] = media_from(interaction.message, needed=needed)
@@ -395,12 +395,9 @@ class KumaHelpPanel(discord.ui.LayoutView):
         )
 
         keep: dict[str, discord.Attachment] = {
-            attachment.filename: attachment
-            for attachment in (interaction.message.attachments if interaction.message else [])
+            attachment.filename: attachment for attachment in (interaction.message.attachments if interaction.message else [])
         }
-        attachments: list[Any] = (
-            [keep[name] for name in needed] if media is not None else list(help_files(needed))
-        )
+        attachments: list[Any] = [keep[name] for name in needed] if media is not None else list(help_files(needed))
         await interaction.response.edit_message(view=panel, attachments=attachments)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -452,8 +449,7 @@ class KumaCommandPanel(discord.ui.LayoutView):
         if command.aliases:
             container.add_item(
                 discord.ui.TextDisplay(
-                    f"-# {_plural(len(command.aliases), 'alias', 'es')}: "
-                    f"{', '.join(f'`{alias}`' for alias in command.aliases)}",
+                    f"-# {_plural(len(command.aliases), 'alias', 'es')}: {', '.join(f'`{alias}`' for alias in command.aliases)}",
                 ),
             )
 
@@ -462,8 +458,7 @@ class KumaCommandPanel(discord.ui.LayoutView):
             container.add_item(
                 discord.ui.TextDisplay(
                     "\n".join(
-                        f"**{'/' if entry.slash else ''}{entry.name}**"
-                        f"{f' `{entry.params}`' if entry.params else ''}\n-# {entry.summary}"
+                        f"**{'/' if entry.slash else ''}{entry.name}**{f' `{entry.params}`' if entry.params else ''}\n-# {entry.summary}"
                         for entry in subcommands
                     ),
                 ),
@@ -477,6 +472,7 @@ class KumaHelpCommand(commands.HelpCommand):
 
     Replaces discord.py's `DefaultHelpCommand`, which paginates into plain code blocks. Every
     response here is a `LayoutView`, so nothing carries `content` or `embeds`.
+
     """
 
     def __init__(self, **options: Any) -> None:
@@ -522,6 +518,7 @@ class KumaHelpCommand(commands.HelpCommand):
 
         A help reply that mentions its asker produces a badge for something they already have open,
         so mentions are suppressed explicitly rather than being left to the client default.
+
         """
         await self.get_destination().send(
             view=view,
@@ -543,8 +540,7 @@ class KumaHelpCommand(commands.HelpCommand):
     def _app_entry(self, command: app_commands.Command[Any, ..., Any]) -> HelpEntry:
         """Flatten one application command into a :class:`HelpEntry`."""
         params: str = " ".join(
-            f"<{parameter.display_name}>" if parameter.required else f"[{parameter.display_name}]"
-            for parameter in command.parameters
+            f"<{parameter.display_name}>" if parameter.required else f"[{parameter.display_name}]" for parameter in command.parameters
         )
         return HelpEntry(
             name=command.qualified_name,
@@ -558,20 +554,17 @@ class KumaHelpCommand(commands.HelpCommand):
         """Flatten a cog's application commands, groups walked for their subcommands.
 
         `HelpCommand` only ever sees `cog.get_commands()`, which is prefix and hybrid commands. A cog
-        whose surface is pure `app_commands` — `ClaudeCog` is entirely one `app_commands.Group` --
+        whose surface is pure `app_commands` — `ClaudeCog` is entirely one `app_commands.Group` —
         is therefore invisible to it, cog and all. Hybrids are not double counted: they appear in
         `get_commands()` and are absent from `get_app_commands()`.
+
         """
         if cog is None:
             return []
         entries: list[HelpEntry] = []
         for command in cog.get_app_commands():
             if isinstance(command, app_commands.Group):
-                entries.extend(
-                    self._app_entry(child)
-                    for child in command.walk_commands()
-                    if isinstance(child, app_commands.Command)
-                )
+                entries.extend(self._app_entry(child) for child in command.walk_commands() if isinstance(child, app_commands.Command))
             elif isinstance(command, app_commands.Command):
                 entries.append(self._app_entry(command))
         return entries
@@ -583,6 +576,7 @@ class KumaHelpCommand(commands.HelpCommand):
         by it, so no cog claims them and `get_bot_mapping` never sees them. They also read nothing
         like a command — there is no name to type — which is why they get a section instead of
         being scattered through the others.
+
         """
         tree: app_commands.CommandTree[Any] = self.context.bot.tree
         found: list[app_commands.ContextMenu] = []

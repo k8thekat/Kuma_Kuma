@@ -1,0 +1,63 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "inputs": [
+        // {
+        //     "id": "variableID",
+        //     "type": "promptString",
+        //     "description": "Any additional args needed, default is ''",
+        //     "default": ""
+        // },
+        {
+            "id": "envType",
+            "type": "pickString",
+            "description": "Run Live or Development settings...",
+            "options": [
+                "-live",
+                "-dev",
+                "-local",
+                "-build",
+            ]
+        },{
+            "id": "log_level",
+            "type": "pickString",
+            "description": "Set the Python logging level, default is `INFO`.",
+            "default": "-info",
+            "options": [
+                "-info",
+                "-debug",
+            ]
+        }
+    ],
+    "configurations": [
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "Run the local.py",
+            "program": "./local.py",
+            // debugpy pipes stdout, so `isatty()` says no colour even in a console
+            // that renders it. KumaLogFormatter honours this.
+            "env": {
+                "FORCE_COLOR": "1"
+            },
+            "args": [
+                "${input:envType}",
+                "${input:log_level}",
+                // "${input:variableID}"
+            ]
+        },
+        // {
+        //     "type": "debugpy",
+        //     "request": "launch",
+        //     "name": "Run the local.py as DEVELOPMENT",
+        //     "program": "./local.py",
+        //     "args": [
+        //         "-dev",
+        //         "${input:variableID2}",
+        //         "${input:variableID}"
+        //     ]
+        // }
+    ]
+}

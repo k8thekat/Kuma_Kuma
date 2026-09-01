@@ -45,7 +45,19 @@ dsn = <sentry dsn>
 [GITHUB]
 owner = <github username>
 token = <github personal access token>
+
+[SONARR]
+url = http://localhost:8989
+api_key = <sonarr api key>
+url_base =
+
+[RADARR]
+url = http://localhost:7878
+api_key = <radarr api key>
+url_base =
 ```
+
+The `[SONARR]` and `[RADARR]` sections are optional — omitting one disables that half of the `sonarr_radarr` cog without affecting the other.
 
 The bot creates its SQLite tables (`prefix`, `owners`) automatically on first startup in `kuma_kuma.sqlite`.
 
@@ -63,6 +75,7 @@ See [`extensions/README.MD`](extensions/README.MD) for the public cogs.
 | `moderator` | Moderation utilities — `who_is`, `clear`, `trust`, per-guild `prefixes`, `sync`, and spam-message tracking. |
 | `reddit` | Subreddit image crawler with duplicate-hash detection, posting via webhooks. |
 | `repl_cog` | In-Discord Python REPL and eval sessions for development. |
+| `sonarr_radarr` | Sonarr and Radarr media management — browse, search, add, remove, and monitor series/movies via [a_sonarr_radarr](https://github.com/k8thekat/a_sonarr_radarr). |
 | `utility` | General utilities, including "yoinking" emojis/stickers across guilds. |
 
 # Usage

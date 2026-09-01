@@ -23,6 +23,12 @@ Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA
 
 from __future__ import annotations
 
+__title__ = "Kuma Kuma"
+__author__ = "k8thekat"
+__license__ = "GNU"
+__version__ = "1.0.0"
+__credits__ = "Kuma Kuma Bear"
+
 import argparse
 import asyncio
 import contextlib
@@ -30,24 +36,18 @@ import datetime
 import importlib
 import logging
 import os
-import pathlib
 import signal
 import sys
 import time
-import traceback
 from configparser import ConfigParser
-from datetime import timedelta
 from io import BytesIO
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
-from pprint import pformat
 from sqlite3 import DatabaseError
 from threading import Thread, current_thread
-from typing import TYPE_CHECKING, Any, ClassVar, Optional, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple, Optional, Union
 
 import asqlite
-
-# import colorlog
 import discord
 import mystbin
 import sentry_sdk
@@ -56,8 +56,6 @@ from aiohttp_client_cache.session import CachedSession
 from discord import Intents, Interaction, app_commands
 from discord.ext import commands
 from discord.utils import MISSING
-
-# from discord.utils import _ColourFormatter as ColourFormatter
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from sentry_sdk.integrations.asyncio import AsyncioIntegration
 
@@ -70,11 +68,13 @@ from utils import (
     KumaHelpCommand,
     KumaLogFormatter,
     KumaResources,
+    MessageHistory,
     colourise_log,
     entry_level,
     parse_levels,
     report_error,
     setup_errors,
+    setup_message_history,
     split_log_entries,
 )
 
@@ -85,6 +85,17 @@ if TYPE_CHECKING:
 
     import aiohttp
     from discord.ext.tasks import Loop
+    from discord.state import ConnectionState
+
+
+class VersionInfo(NamedTuple):
+    major: int
+    minor: int
+    revision: int
+    release_level: Literal["release", "development"]
+
+
+version_info: VersionInfo = VersionInfo(major=1, minor=0, revision=0, release_level="development")
 
 
 DB_FILENAME = "kuma_kuma.sqlite"
@@ -95,7 +106,8 @@ DEFAULT_PREFIX: str = "kuma"
 LOG_TAIL_CHUNK = 16 * 1024
 #: How far back from EOF `LogHandler.parse_log` will search before giving up.
 LOG_TAIL_MAX_BYTES = 4 * 1024 * 1024
-DB_PATH: str = Path(__file__).parent.joinpath(DB_FILENAME).as_posix()
+CACHE_DIR: Path = Path(__file__).parent.joinpath("cache")
+DB_PATH: str = CACHE_DIR.joinpath(DB_FILENAME).as_posix()
 LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
@@ -204,8 +216,8 @@ class LogHandler:
             self.logger.warning("Sentry SDK is Disabled -- Flag: %s", local_dev)
         self.webhook_url: str = webhook_url
         self.session = session
-        self.path: Path = pathlib.Path(__file__).parent.joinpath("logs")
-        self.cur_log: Path = pathlib.Path(__file__).parent.joinpath("logs/log.log")
+        self.path: Path = Path(__file__).parent.joinpath("logs")
+        self.cur_log: Path = Path(__file__).parent.joinpath("logs/log.log")
 
         # Colour goes to the console only. The rotating file stays plain text so
         # `grep` keeps working and `parse_log` does not ship escape bytes into a
@@ -220,7 +232,7 @@ class LogHandler:
             handlers=[
                 stream_handler,
                 TimedRotatingFileHandler(
-                    filename=pathlib.Path.as_posix(self=self.path) + "/log.log",
+                    filename=self.path.joinpath("log.log").as_posix(),
                     when="midnight",
                     atTime=datetime.datetime.min.time(),
                     backupCount=8,
@@ -418,22 +430,20 @@ class LogHandler:
         return await mystbin.Client(session=session).create_paste(files=post_files, password=password, expires=expires)
 
     @staticmethod
-    def dump_file(data: str | BytesIO, file_name: str) -> None:
+    def dump_file(data: Union[str, BytesIO], file_name: str) -> None:
         if isinstance(data, BytesIO):
             data = data.read().decode(encoding="utf-8")
 
-        with Path().joinpath(f"{file_name}.dump").open("w+") as f:
-            f.write(data)
-
-        f.close()
+        with Path().joinpath(f"{file_name}.dump").open("w+") as dump_file:
+            dump_file.write(data)
 
 
 class ProxyObject(discord.Object):
     __slots__ = ("guild",)
 
-    def __init__(self, guild: discord.abc.Snowflake | None, /) -> None:
+    def __init__(self, guild: Optional[discord.abc.Snowflake], /) -> None:
         super().__init__(id=0)
-        self.guild: discord.abc.Snowflake | None = guild
+        self.guild: Optional[discord.abc.Snowflake] = guild
 
 
 class KumaCommandTree(app_commands.CommandTree):
@@ -531,7 +541,7 @@ class KumaCommandTree(app_commands.CommandTree):
 
         # Answered first, and separately from the report below. Discord shows a deferred interaction
         # as "thinking..." until something replies to it, so a command that raised after its `defer`
-        # used to hang there forever -- and the report is the part that can fail, which would take
+        # used to hang there forever — and the report is the part that can fail, which would take
         # the reply down with it if the caller were told second.
         await self.answer_caller(interaction=interaction)
         try:
@@ -551,8 +561,7 @@ class KumaCommandTree(app_commands.CommandTree):
     async def answer_caller(self, *, interaction: Interaction) -> None:
         """Closes off a failed command's interaction, so the caller isn't left watching a spinner."""
         content: str = (
-            "That command hit an error, so it didn't finish. It has been logged and Kat has been "
-            f"told. {self.client.emoji_table.kuma_sad}"
+            f"That command hit an error, so it didn't finish. It has been logged and Kat has been told. {self.client.emoji_table.kuma_sad}"
         )
         with contextlib.suppress(discord.HTTPException):
             if interaction.response.is_done():
@@ -618,6 +627,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
     load, unload and reload routes through those two — `reload_extension` is remove then add — so
     there is no path by which a cog arrives or leaves without the map hearing about it.
     """
+    msg_history: MessageHistory
 
     if TYPE_CHECKING:
         user: discord.ClientUser
@@ -661,8 +671,8 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
         return discord.Webhook.from_url(url=self.config.logging_webhook, session=self.session)
 
     @property
-    def uptime(self) -> timedelta:
-        return timedelta(seconds=(round(time.time() - self.start_time)))
+    def uptime(self) -> datetime.timedelta:
+        return datetime.timedelta(seconds=(round(time.time() - self.start_time)))
 
     @property
     def local_ini(self) -> Path:
@@ -680,6 +690,11 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
     @property
     def session(self) -> CachedSession:
         return self._session
+
+    @property
+    def connection_state(self) -> ConnectionState:
+        """The internal connection state; gives manually-built objects access to the HTTP client."""
+        return self._connection
 
     async def add_cog(
         self,
@@ -752,6 +767,8 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
                 await conn.execute(PREFIX_SETUP_SQL)
                 await conn.execute(OWNER_SETUP_SQL)
             await setup_errors(self.pool)
+            await setup_message_history(self.pool)
+            self.msg_history = MessageHistory(pool=self.pool)
             self.owner_ids = await _get_trusted(bot=self)  # type: ignore - As long as it's a set of Ints it's fine.
 
         except DatabaseError:
@@ -761,7 +778,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
 
     async def on_ready(self) -> None:
         LOGGER.name = "Kuma Kuma"
-        LOGGER.info(msg="Kuma Kuma Bear <3")
+        LOGGER.info("Kuma Kuma Bear <3")
         try:
             self._app_emojis: list[discord.Emoji] = await self.fetch_application_emojis()
         except (discord.errors.HTTPException, discord.errors.MissingApplicationID):
@@ -849,7 +866,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
         """
         module: types.ModuleType = importlib.reload(importlib.import_module("utils.help"))
         self.help_command = module.KumaHelpCommand()
-        LOGGER.info("<%s.%s> | Rebound the help command.", type(self).__name__, "refresh_help_command")
+        LOGGER.info("<%s.%s> | Rebound the help command.", __class__.__name__, "refresh_help_command")
 
     def commands_enabled_for(self, message: discord.Message) -> bool:
         """Whether this message should be run through `process_commands`.
@@ -917,7 +934,9 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
                 )
             elif isinstance(error, commands.MissingRequiredArgument):
                 await context.send(
-                    content=f"> You called `{context.command.name}` command without the required arguments. {self.emoji_table.kuma_head_clench}",
+                    content=(
+                        f"> You called `{context.command.name}` command without the required arguments. {self.emoji_table.kuma_head_clench}"
+                    ),
                     ephemeral=True,
                     delete_after=30,
                 )
@@ -996,9 +1015,9 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
         Parameters
         ----------
         reaction: :class:`discord.Reaction`
-            _description_.
+            The reaction that was added.
         user: :class:`Union[discord.Member, discord.User]`
-            _description_.
+            The member or user who added the reaction.
 
         """
         if isinstance(reaction.emoji, str):
@@ -1099,10 +1118,11 @@ async def main(*, local_dev: bool = False, log_level: int = logging.INFO) -> boo
     cur_thread: Thread = current_thread()
     cur_thread.name = "Kuma Kuma Bear"
     config: KumaConfig = ini_load()
-    cache_location = Path(__file__).parent
+    # Ensure the cache directory exists before any SQLite backend opens a file in it.
+    CACHE_DIR.mkdir(exist_ok=True)
     # TODO(@k8thekat) Implement -> https://requests-cache.readthedocs.io/en/stable/user_guide/expiration.html
     _cache = SQLiteBackend(
-        cache_name=cache_location.joinpath("kuma_kuma_cache").as_posix(),
+        cache_name=CACHE_DIR.joinpath("kuma_kuma_cache").as_posix(),
         autoclose=True,
         expire_after=86400,
     )

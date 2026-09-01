@@ -21,28 +21,47 @@ Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA
 from __future__ import annotations
 
 import textwrap
+from typing import TYPE_CHECKING
 
 from discord.ext import commands
-from discord.ext.commands import Context  # This should point to your custom Context
+
+if TYPE_CHECKING:
+    from discord.ext.commands import Context
+
+__all__ = ("CodeBlockConverter", "Snowflake")
 
 
 class CodeBlockConverter(commands.Converter):
-    async def convert(self, ctx: commands.Context, arg: str) -> str:
+    """Strips code block fencing from a command argument."""
+
+    async def convert(self, ctx: commands.Context, argument: str) -> str:  # noqa: ARG002 — ctx is part of the Converter protocol
         """Automatically removes code blocks from the code."""
-        content = textwrap.dedent(arg).strip()
+        content: str = textwrap.dedent(argument).strip()
         if content.startswith("`" * 3) and content.endswith("`" * 3):
             return "\n".join(content.split("\n")[1:-1])
-        # remove `foo`
+        # Remove inline backtick wrapping.
         return content.strip("` \n")
 
 
 class Snowflake:
+    """Converts a string argument to a Discord snowflake (integer ID)."""
+
     @classmethod
     async def convert(cls, ctx: Context, argument: str) -> int:
+        """Convert the argument to an integer snowflake ID.
+
+        Raises
+        ------
+        :exc:`commands.BadArgument`
+            The argument is not a valid integer.
+
+        """
         try:
             return int(argument)
         except ValueError:
-            param = ctx.current_parameter
-            if param:
-                raise commands.BadArgument(f"{param.name} argument expected a Discord ID not {argument!r}")
-            raise commands.BadArgument(f"expected a Discord ID not {argument!r}")
+            parameter = ctx.current_parameter
+            if parameter:
+                msg: str = f"{parameter.name} argument expected a Discord ID not {argument!r}"
+                raise commands.BadArgument(msg) from None
+            msg = f"expected a Discord ID not {argument!r}"
+            raise commands.BadArgument(msg) from None

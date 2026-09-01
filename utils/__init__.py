@@ -18,11 +18,13 @@ Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA
 02110-1301, USA.
 """
 
+from __future__ import annotations
+
 import importlib
 import sys
 import types
 from types import ModuleType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from .animation import *
 from .codeblocks import *
@@ -31,6 +33,7 @@ from .context import *
 from .embeds import *
 from .error import *
 from .help import *
+from .history import *
 from .ui import *
 
 if TYPE_CHECKING:
@@ -83,7 +86,7 @@ def reload_module_dependencies(module_path: str, /, *, package_root: str = "util
 
         # Inspect this module's namespace for references to other modules we own.
         for value in vars(module).values():
-            dep: ModuleType | None = None
+            dep: Optional[ModuleType] = None
 
             if isinstance(value, types.ModuleType):
                 # A direct `import utils.embeds` style reference.

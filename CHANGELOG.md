@@ -1,5 +1,46 @@
 # Changelog
 
+## Diablo 4 item parsing cog
+
+# extensions/diablo4.py (new)
+- New cog wrapping `d4-cauldron` for item extraction from tooltip screenshots.
+- `/d4 parse` — two pipelines behind a method choice: AI Vision (Claude API) and Pixel Analysis (Pillow). Auto resolves to the best available.
+- `/d4 inventory` — list saved items per user and guild.
+- `ItemView` (CV2) — quality-coloured panel with affixes split by source, sockets, roll quality, and edit/save/export/delete controls.
+- Per-user cooldowns (60s); resets on failure so retries are immediate.
+- SQLite table `d4_items` for persistence; full item JSON alongside indexed columns.
+- Loads without `d4-cauldron` or `Pillow`; commands say what's missing.
+
+## Radarr cog, search commands, and sonarr_radarr rename
+
+# extensions/sonarr_radarr.py (was extensions/sonarr.py)
+- Renamed from `sonarr.py` to `sonarr_radarr.py`; auto-discovery picks it up via `iter_modules`.
+- Imports updated from `async_sonarr` to `a_sonarr_radarr`, adding `RadarrAPI`.
+- Shared UI components renamed: `SonarrButton` to `ArrButton`, `SonarrSelect` to `ArrSelect`.
+- Settings loading refactored: `_load_section()` reads one INI section, `load_sonarr_settings()` and `load_radarr_settings()` wrap it.
+- `SonarrPanel` and all Sonarr panels preserved; import paths and component names updated.
+- New `RadarrPanel` base with movie-specific `art`, `accessory`, and `links` (TMDB instead of TVDB).
+- `MoviePanel` — full movie detail: artwork, status, file presence, release date, TMDB rating, search/refresh/remove actions.
+- `MovieLibraryPanel` — paginated movie library with file markers and status labels.
+- `MovieAddPanel` — TMDB search with quality profile, root folder, and minimum availability selects.
+- `MovieRemovePanel` — delete confirmation with file toggle and expiry deadline.
+- `MovieStatusPanel` — instance health, queue, disk space, library totals with on-disk/missing counts.
+- `RadarrCog` — full cog with `/radarr list|info|search|add|remove|status`, autocomplete, owner gate.
+- `setup()` adds both `SonarrCog` and `RadarrCog`.
+- `/sonarr search` and `/radarr search` — paginated browse-only lookup results (`SearchPanel`, `MovieSearchPanel`). Each page shows five results with poster, status, and network/studio; selecting one opens its full detail view.
+- Owner gate moved from `interaction_check` overrides to `@app_commands.check(_owner_only)` on each command. `_owner_only()` is a module-level async check; `cog_app_command_error` catches `CheckFailure` with a kuma-styled reply.
+- New helpers for Radarr's `Series` model differences:
+    - `movie_has_file()` reads `_raw["hasFile"]` since `episodeFileCount` is absent on movie payloads.
+    - `movie_web_url()` builds `/movie/{slug}` instead of the Sonarr `/series/{slug}` path.
+    - `movie_tmdb_url()` reads `_raw["tmdbId"]` for the TMDB link.
+    - `movie_studio()` reads `_raw["studio"]` since `network` is `None` for movies.
+    - `movie_status_label()` maps camelCase statuses (`inCinemas`) to display names via `MOVIE_STATUS_DISPLAY`.
+    - `accent_for_movie()` colours containers by movie status.
+- New constants: `MOVIE_STATUS_ACCENTS`, `MOVIE_STATUS_DISPLAY`, `AVAILABILITY_CHOICES`.
+
+# CLAUDE.md
+- Emoji guidance updated: `KumaEmojiTable` for text and replies, unicode and default Discord emoji are fine for button styling and visual markers, `UnicodeTable` for structural characters.
+
 ## Error reports go to the owner, and the restart stops breaking things
 
 # kuma_kuma.py

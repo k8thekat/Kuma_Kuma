@@ -1,0 +1,19 @@
+{
+    "recommendations": [
+        "njpwerner.autodocstring",
+        "streetsidesoftware.code-spell-checker",
+        "tamasfe.even-better-toml",
+        "mohsen1.prettify-json",
+        "ms-python.vscode-pylance",
+        "ms-python.python",
+        "ms-python.vscode-python-envs",
+        "Gruntfuggly.todo-tree",
+        "aaron-bond.better-comments",
+        "lovebird.better-comments-enhanced",
+        "usernamehw.errorlens",
+        "rodolphebarbanneau.python-docstring-highlighter",
+        "jgclark.vscode-todo-highlight",
+        "charliermarsh.ruff"
+    ],
+    "unwantedRecommendations": []
+}

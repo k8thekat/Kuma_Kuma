@@ -18,18 +18,19 @@ Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA
 02110-1301, USA.
 """
 
+from __future__ import annotations
+
 import datetime
-import platform
-from collections.abc import Sequence
-from pathlib import Path
-from typing import Literal, Optional, Self, Unpack
+from typing import TYPE_CHECKING, Optional, Self, Union, Unpack
 
 import discord
 from discord import Embed
-from discord.ext.commands import Cog
 
-from utils._types import EmbedParams
-from utils.cog import KumaCog, KumaResources
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from utils._types import EmbedParams
+    from utils.cog import KumaCog
 
 __all__ = ("KumaEmbed",)
 
@@ -56,23 +57,23 @@ class KumaEmbed(Embed):
     ----------
     cog: :class:`KumaCog`
         A :class:`discord.Cog` type class.
-    footer_icon: :class:`discord.File | str | None`
+    footer_icon: :class:`Optional[Union[discord.File, str]]`
         Set the Footer Icon for a :class:`discord.Embed`.
-    thumbnail_icon: :class:`discord.File | str | None`
+    thumbnail_icon: :class:`Optional[Union[discord.File, str]]`
         Set the Thumbnail Icon for a :class:`discord.Embed`.
-    avatar_icon: :class:`discord.File | str | None`
+    avatar_icon: :class:`Optional[Union[discord.File, str]]`
         Set the Avatar Icon for a :class:`discord.Embed`.
-    field_image: :class:`discord.File | str | None`
+    field_image: :class:`Optional[Union[discord.File, str]]`
         Set the Field Image for a :class:`discord.Embed`.
 
     """
 
     cog: KumaCog
     "My internal cog class."
-    _footer_icon: discord.File | str | None = None
-    _thumbnail_icon: discord.File | str | None = None
-    _avatar_icon: discord.File | str | None = None
-    _field_image: discord.File | str | None = None
+    _footer_icon: Optional[Union[discord.File, str]] = None
+    _thumbnail_icon: Optional[Union[discord.File, str]] = None
+    _avatar_icon: Optional[Union[discord.File, str]] = None
+    _field_image: Optional[Union[discord.File, str]] = None
 
     @property
     def attachments(self) -> Sequence[discord.File]:
@@ -81,7 +82,7 @@ class KumaEmbed(Embed):
         Returns
         -------
         :class:`Sequence[discord.File]`
-            _description_.
+            The attachments to pass along to ``message.send()`` for this embed.
 
         """
         attrs: list[str] = ["thumbnail_icon", "avatar_icon", "footer_icon", "field_image"]
@@ -89,7 +90,7 @@ class KumaEmbed(Embed):
         # This should allow us to del the property/attributes when not using defaults thus preventing the attachments from being included.
         for attr in attrs:
             try:
-                res: discord.File | str | None = getattr(self, attr)
+                res: Optional[Union[discord.File, str]] = getattr(self, attr)
                 # We only care about discord.Files as they will be in-line attachments (by design).
                 if isinstance(res, discord.File):
                     icons.append(res)
@@ -101,7 +102,7 @@ class KumaEmbed(Embed):
         return icons
 
     @property
-    def thumbnail_icon(self) -> discord.File | str | None:
+    def thumbnail_icon(self) -> Optional[Union[discord.File, str]]:
         """Set the Thumbnail Icon for a :class:`discord.Embed`.
 
         - Supports ``URL's``.
@@ -112,19 +113,19 @@ class KumaEmbed(Embed):
 
         Returns
         -------
-        :class:`discord.File | str | None`
+        :class:`Optional[Union[discord.File, str]]`
 
         """
         return self._thumbnail_icon
 
     @thumbnail_icon.setter
-    def thumbnail_icon(self, value: Optional[discord.File | str]) -> None:
+    def thumbnail_icon(self, value: Optional[Union[discord.File, str]]) -> None:
         if isinstance(value, discord.File):
             value.filename = "thumbnail-icon.png"
         self._thumbnail_icon = value
 
     @property
-    def avatar_icon(self) -> discord.File | str | None:
+    def avatar_icon(self) -> Optional[Union[discord.File, str]]:
         """Set the Avatar Icon for a :class:`discord.Embed`.
 
         - Supports ``URL's``.
@@ -135,19 +136,19 @@ class KumaEmbed(Embed):
 
         Returns
         -------
-        :class:`discord.File | str | None`
+        :class:`Optional[Union[discord.File, str]]`
 
         """
         return self._avatar_icon
 
     @avatar_icon.setter
-    def avatar_icon(self, value: Optional[discord.File | str]) -> None:
+    def avatar_icon(self, value: Optional[Union[discord.File, str]]) -> None:
         if isinstance(value, discord.File):
             value.filename = "avatar-icon.png"
         self._avatar_icon = value
 
     @property
-    def field_image(self) -> discord.File | str | None:
+    def field_image(self) -> Optional[Union[discord.File, str]]:
         """Set the Field Image for a :class:`discord.Embed`.
 
         - Supports ``URL's``
@@ -158,19 +159,19 @@ class KumaEmbed(Embed):
 
         Returns
         -------
-        :class:`discord.File | str | None`
+        :class:`Optional[Union[discord.File, str]]`
 
         """
         return self._field_image
 
     @field_image.setter
-    def field_image(self, value: None | discord.File | str) -> None:
+    def field_image(self, value: Optional[Union[discord.File, str]]) -> None:
         if isinstance(value, discord.File):
             value.filename = "field-image.png"
         self._field_image = value
 
     @property
-    def footer_icon(self) -> discord.File | str | None:
+    def footer_icon(self) -> Optional[Union[discord.File, str]]:
         """The Footer Icon for a :class:`discord.Embed`.
 
         - Supports ``URL's``.
@@ -181,13 +182,13 @@ class KumaEmbed(Embed):
 
         Returns
         -------
-        :class:`discord.File | str | None`
+        :class:`Optional[Union[discord.File, str]]`
 
         """
         return self._footer_icon
 
     @footer_icon.setter
-    def footer_icon(self, value: Optional[discord.File | str]) -> None:
+    def footer_icon(self, value: Optional[Union[discord.File, str]]) -> None:
         if isinstance(value, discord.File):
             value.filename = "footer-icon.png"
         self._footer_icon = value
@@ -206,7 +207,7 @@ class KumaEmbed(Embed):
             kwargs["title"] = "__Kuma Kuma Bear__"
 
         # Attempt to set our Timestamp, default to UTC
-        timestamp: datetime.datetime | None = kwargs.get("timestamp")
+        timestamp: Optional[datetime.datetime] = kwargs.get("timestamp")
         if timestamp is None:
             kwargs["timestamp"] = datetime.datetime.now(tz=datetime.UTC)
 
@@ -228,7 +229,7 @@ class KumaEmbed(Embed):
         chaining. Can only be up to 25 fields.
 
         .. note::
-            The default used to be ``-1``, which is *one before the end* rather than the end --
+            The default used to be ``-1``, which is *one before the end* rather than the end —
             `insert_field_at(-1)` on a single field embed puts the spacer above it. Every bare
             caller wanted a spacer appended where they stood, so `None` (append) is the default.
 
@@ -350,7 +351,7 @@ class KumaEmbed(Embed):
     def set_author(
         self,
         *,
-        author: Optional[discord.Member | discord.ClientUser] = None,
+        author: Optional[Union[discord.Member, discord.ClientUser]] = None,
         name: Optional[str] = "Kuma Kuma Bear",
         url: Optional[str] = None,
         icon_url: Optional[str] = "attachment://avatar-icon.png",
@@ -359,8 +360,8 @@ class KumaEmbed(Embed):
 
         Parameters
         ----------
-        author: :class:`Optional[discord.Member]`, optional
-            The author of the embed, if applicable. Will use the object to populate ``name`` and either ``icon_url`` and or ``icon``
+        author: :class:`Optional[Union[discord.Member, discord.ClientUser]]`, optional
+            The author of the embed, if applicable. Will use the object to populate ``name`` and either ``icon_url`` or ``icon``.
         name: :class:`Optional[str]`, optional
             The name of the author. Can only be up to 256 characters. Default is "Kuma Kuma Bear".
         url: :class:`Optional[str]`, optional
@@ -381,7 +382,7 @@ class KumaEmbed(Embed):
 
         return super().set_author(name=name, url=url, icon_url=icon_url)
 
-    def set_thumbnail(self, *, img: Optional[discord.File] = None, url: Optional[str | discord.Asset] = None) -> Self:
+    def set_thumbnail(self, *, img: Optional[discord.File] = None, url: Optional[Union[str, discord.Asset]] = None) -> Self:
         """Set the Thumbnail Image of the Embedd.
 
         .. warning::
@@ -393,7 +394,7 @@ class KumaEmbed(Embed):
         img: :class:`Optional[discord.File]`, optional
             A pre-built discord.File object that will be set as :property:`self.thumbnail_icon` and the URL set to `attachment://thumbnail-icon.png`,
             by default `None`.
-        url: :class:`Optional[str | discord.Asset]`, optional
+        url: :class:`Optional[Union[str, discord.Asset]]`, optional
             The icon url parameter for `super().set_thumbnail(url)`, by default `None` (no thumbnail).
 
         Returns

@@ -24,12 +24,24 @@ from typing import TYPE_CHECKING, Any, NotRequired, Optional, TypedDict, Union
 
 if TYPE_CHECKING:
     import datetime
+    from collections.abc import Sequence
 
     import discord
     from discord import Colour
     from discord.types.embed import EmbedType
 
+    #: A single emoji suitable for message content — a pre-formatted inline string (``<:name:id>``),
+    #: a full :class:`discord.Emoji`, or a :class:`discord.PartialEmoji`. All three stringify to a
+    #: form Discord renders as an emoji.
+    EmojiInput = Union[str, discord.Emoji, discord.PartialEmoji]
+
+    #: One or more emoji for a followup message. A single :data:`EmojiInput` or a sequence of them;
+    #: sequences are joined with spaces so Discord still renders them large (up to 3 custom emoji per
+    #: message, or ~27 unicode emoji).
+    EmojiFollowup = Union[EmojiInput, Sequence[EmojiInput]]
+
 __all__ = ("ButtonParams", "EmbedParams", "GitHubIssueSubmissionResponse", "SelectParams")
+
 
 class GitHubIssueSubmissionResponse(TypedDict):
     id: int
@@ -44,22 +56,22 @@ class GitHubIssueSubmissionResponse(TypedDict):
     state: str
     title: str
     body: str
-    user: dict[str, str | int | bool]
-    labels: list[dict[str, str | int | bool]]
-    assignee: dict[str, str | int | bool]
-    assignees: dict[str, str | int | bool]
-    milestone: dict[str, str | int | bool]
+    user: dict[str, Union[str, int, bool]]
+    labels: list[dict[str, Union[str, int, bool]]]
+    assignee: dict[str, Union[str, int, bool]]
+    assignees: dict[str, Union[str, int, bool]]
+    milestone: dict[str, Union[str, int, bool]]
     locked: bool
     active_lock_reason: str
     comments: int
-    pull_request: dict
-    closed_at: str | None
+    pull_request: dict[str, Any]
+    closed_at: Optional[str]
     "ISO format datetime"
-    created_at: str | None
+    created_at: Optional[str]
     "ISO format datetime"
-    updated_at: str | None
+    updated_at: Optional[str]
     "ISO format datetime"
-    closed_by: str | None
+    closed_by: Optional[str]
     "ISO format datetime"
     author_association: str
     state_reason: str
@@ -70,8 +82,8 @@ class EmbedParams(TypedDict):
 
     Keys
     ----
-    - colour: :class:`NotRequired[Optional[int | Colour]]`
-    - color: :class:`NotRequired[Optional[int | Colour]]`
+    - colour: :class:`NotRequired[Optional[Union[int, Colour]]]`
+    - color: :class:`NotRequired[Optional[Union[int, Colour]]]`
     - title: :class:`NotRequired[Optional[Any]]`
     - type: :class:`NotRequired[EmbedType]`
     - url: :class:`NotRequired[Optional[Any]]`
@@ -79,11 +91,10 @@ class EmbedParams(TypedDict):
     - timestamp: :class:`NotRequired[Optional[datetime.datetime]]`
     - author: :class:`NotRequired[Optional[str]]`
 
-
     """
 
-    colour: NotRequired[Optional[int | Colour]]
-    color: NotRequired[Optional[int | Colour]]
+    colour: NotRequired[Optional[Union[int, Colour]]]
+    color: NotRequired[Optional[Union[int, Colour]]]
     title: NotRequired[Optional[Any]]
     type: NotRequired[EmbedType]
     url: NotRequired[Optional[Any]]
@@ -102,6 +113,7 @@ class ButtonParams(TypedDict):
     row: NotRequired[Optional[int]]
     sku_id: NotRequired[Optional[int]]
     id: NotRequired[Optional[int]]
+
 
 class SelectParams(TypedDict):
     custom_id: NotRequired[str]

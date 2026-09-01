@@ -1,3 +1,53 @@
+[project]
+name = "kuma-kuma"
+version = "1.0.0"
+authors = [{ name = "k8thekat", email = "Cadwalladerkatelynn@gmail.com" }]
+description = "Personal Discord bot for developing and testing Discord.py cogs."
+requires-python = ">=3.12"
+license = { file = "COPYING" }
+dependencies = [
+    "aiofiles",
+    "aiohttp",
+    "asqlite",
+    "async-garlandtools",
+    "asyncpraw",
+    "attrs",
+    "colorlog",
+    "discord.py",
+    "fake-useragent",
+    "GitPython",
+    "imagehash",
+    "import-expression",
+    "lxml",
+    "Pillow",
+    "psutil",
+    "python-dateutil",
+    "pytz",
+    "pyzill",
+    "requests-cache",
+    "sentry-sdk",
+    "thefuzz",
+    "typing-extensions",
+    "tzlocal",
+    # Git/local dependencies — sources defined in [tool.uv.sources]
+    "a-sonarr-radarr",
+    "async-universalis",
+    "cc-ampapi",
+    "gap",
+    "moogle-intuition",
+]
+
+[project.urls]
+GitHub = "https://github.com/k8thekat/Kuma_Kuma"
+
+[tool.uv.sources]
+a-sonarr-radarr = { git = "https://github.com/k8thekat/a_sonarr_radarr.git" }
+async-garlandtools = { git = "https://github.com/k8thekat/GarlandToolsAPI_wrapper.git", branch = "development" }
+async-universalis = { git = "https://github.com/k8thekat/UniversalisAPI_wrapper.git" }
+cc-ampapi = { git = "https://github.com/k8thekat/AMPAPI_Python.git", branch = "developer" }
+gap = { git = "https://github.com/k8thekat/GoogleAPI-python" }
+moogle-intuition = { git = "https://github.com/k8thekat/moogles_intuition", branch = "development" }
+
 [tool.ruff]
 target-version = "py312"
 line-length = 140
@@ -56,19 +106,15 @@ parametrize-names-type = "tuple"
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+# gap (GoogleAPI-python) is an editable git install; pyright's static resolver
+# does not follow .pth-based editable installs, so the source root is listed here.
+extraPaths = ["/home/kat/gitHub/GoogleAPI-python"]
 typeCheckingMode = "standard"
 pythonVersion = "3.12"
 exclude = ["logs/**", "**/.venv/**", "**/.vscode-server/", "/usr/*", "**/node_modules", "**/__pycache__", "**/.*"]
 include = [""]
 useLibraryCodeForTypes = true
 reportIncompatibleMethodOverride = false
-
-[tool.setuptools]
-packages = ["kuma_kuma"]
-include-package-data = true
-
-[tool.setuptools.dynamic]
-version = { attr = "kuma_kuma.__version__" }
 
 [build-system]
 requires = ["setuptools>=61.0"]
