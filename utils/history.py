@@ -267,7 +267,7 @@ class MessageHistory:
 
         async with self._pool.acquire() as conn:
             cursor = await conn.execute(query, *message_ids)
-            deleted: int = cursor.rowcount
+            deleted: int = cursor.get_cursor().rowcount
 
         LOGGER.debug(
             "<%s.%s> | Deleted %s row(s) | message_ids: %s",
