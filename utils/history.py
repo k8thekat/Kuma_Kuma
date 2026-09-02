@@ -113,6 +113,11 @@ class MessageHistory:
         self._pool: Pool = pool
         self._max_entries: int = max_entries
 
+    @property
+    def max_entries(self) -> int:
+        """The maximum number of rows kept in the table."""
+        return self._max_entries
+
     async def record(self, message: discord.Message) -> SentMessageRecord:
         """Store a sent message's identifiers and prune past the cap.
 
@@ -233,6 +238,45 @@ class MessageHistory:
             )
             for row in rows
         ]
+
+    async def delete(self, *message_ids: int) -> int:
+        """Remove one or more rows by their Discord message snowflake.
+
+        Accepts raw :class:`int` IDs.  To pass a :class:`SentMessageRecord`
+        directly, use its :attr:`message_id`::
+
+            await history.delete(record.message_id)
+            await history.delete(rec_a.message_id, rec_b.message_id)
+
+        Parameters
+        ----------
+        *message_ids: :class:`int`
+            One or more Discord message snowflakes to remove.
+
+        Returns
+        -------
+        :class:`int`
+            The number of rows actually deleted.
+
+        """
+        if not message_ids:
+            return 0
+
+        placeholders: str = ", ".join("?" for _ in message_ids)
+        query: str = f"DELETE FROM sent_messages WHERE message_id IN ({placeholders})"  # noqa: S608
+
+        async with self._pool.acquire() as conn:
+            cursor = await conn.execute(query, *message_ids)
+            deleted: int = cursor.rowcount
+
+        LOGGER.debug(
+            "<%s.%s> | Deleted %s row(s) | message_ids: %s",
+            __class__.__name__,
+            "delete",
+            deleted,
+            message_ids,
+        )
+        return deleted
 
 
 async def setup_message_history(pool: Pool) -> None:

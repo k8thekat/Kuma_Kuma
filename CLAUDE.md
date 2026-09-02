@@ -113,6 +113,10 @@ Include the actual code in replies — the real diff or the real snippet, format
 file, so the style can be checked at a glance rather than after the fact. Do not paraphrase a change
 into prose when the code itself is the answer.
 
+## Git
+
+- **Do not add `Co-Authored-By` trailers to commit messages.** They pollute the generated changelogs.
+
 ## Housekeeping
 
 `TODO.md` and `CHANGELOG.md` are maintained per `~/gitHub/CLAUDE.md`; consult it for the marker

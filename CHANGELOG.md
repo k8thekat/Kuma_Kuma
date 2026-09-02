@@ -126,6 +126,27 @@ enforced type checking and auto pep8
 
 # Changelog
 
+## ArrPanel rewrite and message cleanup
+
+# extensions/sonarr_radarr.py *w/Claude
+- `__version__ = "2.0.0"`.
+- Merged `SonarrPanel` and `RadarrPanel` into a shared `ArrPanel` base; stores the cog as `Union[SonarrCog, RadarrCog]` and gates interactions to the owning user.
+- Unified duplicate views: `SearchPanel`, `DetailPanel`, `AddPanel`, `RemovePanel`, `ListingPanel`, `StatusPanel` now serve both services; the Radarr-only variants (`MovieSearchPanel`, `MoviePanel`, etc.) are removed.
+- Net reduction of ~470 lines of duplicated panel code.
+
+# utils/history.py *w/Claude
+- `MessageHistory.max_entries` property exposing `_max_entries`.
+- `MessageHistory.delete(*message_ids)` removes rows by Discord message snowflake; returns the count of rows actually deleted.
+
+# kuma_kuma.py *w/Claude
+- `_message_cleanup` task loop (60s interval) — fetches tracked messages per guild, compares age against `message_timeout`, deletes expired ones from Discord via `PartialMessage.delete()`, and removes their database rows. Channels that are gone or lack `get_partial_message` are cleaned up without an API call.
+- `_before_message_cleanup` waits for `ready` before the first tick.
+- `close()` override cancels `_message_cleanup` before calling `super().close()`.
+- `_message_cleanup.start()` called in `setup_hook` after `msg_history` creation.
+
+# CLAUDE.md
+- Added `## Git` section: no `Co-Authored-By` trailers in commit messages.
+
 ## Diablo 4 item parsing cog
 
 # extensions/diablo4.py (new)

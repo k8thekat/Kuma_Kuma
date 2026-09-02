@@ -54,7 +54,7 @@ import sentry_sdk
 from aiohttp_client_cache import SQLiteBackend
 from aiohttp_client_cache.session import CachedSession
 from discord import Intents, Interaction, app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.utils import MISSING
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from sentry_sdk.integrations.asyncio import AsyncioIntegration
@@ -769,12 +769,18 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
             await setup_errors(self.pool)
             await setup_message_history(self.pool)
             self.msg_history = MessageHistory(pool=self.pool)
+            self._message_cleanup.start()
             self.owner_ids = await _get_trusted(bot=self)  # type: ignore - As long as it's a set of Ints it's fine.
 
         except DatabaseError:
             LOGGER.exception("<%s.setup_hook()> | Encountered an error.", __class__.__name__)
             msg = "Unable to connect to the database."
             raise DatabaseError(msg)  # noqa: B904
+
+    async def close(self) -> None:
+        if self._message_cleanup.is_running():
+            self._message_cleanup.cancel()
+        await super().close()
 
     async def on_ready(self) -> None:
         LOGGER.name = "Kuma Kuma"
@@ -1068,6 +1074,46 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
         """
         self.restart_requested = True
         self._restart_close_task = asyncio.get_running_loop().create_task(self.close(), name="kuma: restart close")
+
+    @tasks.loop(seconds=60, reconnect=True)
+    async def _message_cleanup(self) -> None:
+        """Deletes tracked messages whose age exceeds :attr:`message_timeout`."""
+        cutoff: datetime.timedelta = datetime.timedelta(seconds=self.message_timeout)
+
+        for guild in self.guilds:
+            records = await self.msg_history.recent(limit=self.msg_history.max_entries, guild_id=guild.id)
+            expired_ids: list[int] = []
+
+            for record in records:
+                if datetime.datetime.now(tz=datetime.UTC) - record.created_at < cutoff:
+                    continue
+
+                channel = guild.get_channel_or_thread(record.channel_id)
+                if channel is None or not hasattr(channel, "get_partial_message"):
+                    # Channel was deleted, lost access, or is not messageable — discard the row.
+                    expired_ids.append(record.message_id)
+                    continue
+
+                try:
+                    partial: discord.PartialMessage = channel.get_partial_message(record.message_id)
+                    await partial.delete()
+                except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                    LOGGER.debug(
+                        "<%s.%s> | Unable to delete message %s in channel %s — removing record.",
+                        __class__.__name__,
+                        "_message_cleanup",
+                        record.message_id,
+                        record.channel_id,
+                    )
+
+                expired_ids.append(record.message_id)
+
+            if expired_ids:
+                await self.msg_history.delete(*expired_ids)
+
+    @_message_cleanup.before_loop
+    async def _before_message_cleanup(self) -> None:
+        await self.wait_until_ready()
 
 
 class KumaConfig:
