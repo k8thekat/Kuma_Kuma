@@ -1,3 +1,129 @@
+# Version - 1.0.0 - [331fd34](https://github.com/k8thekat/Kuma_Kuma/commit/331fd34)
+##Overall
+Update extensions submodule — sonarr_radarr v2.0.0
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- Extensions submodule updated with diablo4, sonarr_radarr, and cog fixes.
+- *see CHANGELOG.md for full details*
+
+##kuma_kuma.py
+- Error handling rewired through report_error; restart via os.execv.
+- Guild prefix cache, command_owners map, commands_enabled_for gate.
+- SIGTERM handler, parse_args, refresh_help_command.
+- owners table gains UNIQUE constraint with migration.
+
+##utils/
+- help.py: KumaHelpCommand (CV2) with app commands and permission notes.
+- codeblocks.py: KumaLogFormatter, CodeFormat, ansi helpers.
+- animation.py: Rolling tail header fix, suppress_embeds on edits.
+- cog.py: rotate_pick, animate, to_cdn_url; retired to_inline_emoji.
+- embeds.py: Fixed default URL, add_blank_field index, separator text.
+- error.py: report_error, setup_errors.
+- timezones.py: Session leak fix, Kyiv typo.
+- ui.py: indx clamp, previous_callback underflow, page_embed.
+- history.py: New module.
+
+##Project files
+- CHANGELOG.md, TODO.md, NOTES.md, README.md, CLAUDE.md updated.
+- pyproject.toml updated; requirements.txt removed.
+- .github/ workflows, .vscode/ config, .archive/ added.
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01QpLTv5e9SeyoSCP7YcnBcv
+- Claude session storage with resume, naming, pruning and file replies.
+- New cogs: Sonarr, Hints, Preferences, Ollama, TMDb (disabled), Google (disabled).
+- Spam-detection rewrite with banned-hash table and hot-reload extensions.
+- Reddit 5xx resilience, Gatekeeper styling, Utility yoink command.
+- New utils: animation, codeblocks, error handler, custom help command.
+- KumaCog: get_request(), emoji/unicode tables, guard pattern.
+- KumaEmbed overhaul, timezone helpers, UI components.
+- Kuma emojis added to resources.
+*see CHANGELOG.md for full details*
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+*see Changelog.md for full details*
+- More Emoji resources added to MooglesIntuitionEmojis.
+- Added a PennPos Enum for string inflection.
+- Fixed the logic for `to_inline_emoji`; despite being deprecated.
+- Added a `get_request()` method to KumaCog.
+- Massive overhaul to KumaEmbed using similar setup logic from FFXIV Embeds.
+- Overwrote `set_footer()` of discord.Embed to have a default URL set.
+- Added additional command error logic checks to give more detailed error responses.
+- Added logic to allow for setting log level during initialization.
+- Disabled `on_error()` handling for `KumaCommandTree`.
+- Added FFXIV app emoji table attributes for Fishing related actions.
+- Added Unicode table attributes for `star` and `blank`.
+- Updated kwargs handling for `KumaEmbeds`.
+- Added support for Cached Sessions.
+- Formatting to Ruff.
+- Updated structure and docs for `KumaEmbed`.
+- Added logic for emoji resolving for `Kuma Emojis`.
+- Re-structured resource classes and emoji classes.
+- Formatted most files/documents with new pyproject.toml settings.
+- Custom discord.Embed class added along with TypedDicts for Embeds and Buttons.
+- Fixed logic bug on get prefix.
+- Improved formatting/logic for command handling at base level.
+- Added FFXIVResource for the FFXIV module.
+- Slight formatting change for types.
+- Slight logic change for `on_command_error` to lower the amount of Sentry events.
+- Added property to point to our local.ini file.
+- Updated requirements.txt.
+- Updated requirements.txt.
+- Relocated assets for future project "Moogle's Intuition".
+Added attributes to `Kuma_Kuma` to have access to emoji's and other resources.
+Added a converter to `KumaCog` to convert a datetime object into Discord Markdown text.
+Updated `.gitignore` with token/secret files.
+Misc resources for development and future ideas.
+Added functionality to `LogHandler` to allow for dumping data to a file.
+Development"
+- Rebuilt Kumas' Database structure and support for trusted Users and Prefixes.
+- Fixed logic error in `on_command_error`.
+- Cleaned up `pyproject.toml`
+- Added emoji's for Kuma Kuma to use.
+- Added `GitHub Issue` response schema and support for creating GitHub issues from Discord messages.
+- Rebuilt Kuma Kuma cog class to support Emojis and Resources~
+- Removed TODOs
+- Added an `await context.typing()` to `reload()`.
+Co-authored-by: Lightning <LightningTH@users.noreply.github.com>
+- Fixed docstrings.
+- Added methods to add/remove and list trusted users.
+- Fixed logic of `/reload` command.
+- fixed imports
+
+##requirements.txt
+- fixed versions and modules.
+- Removed unsed imports and fixed requirements.
+Removed old code from `loader.py`
+- Added `_` as a start char to ignore file
+Cleaned up loader.py to support cog location.
+- Added Time Table class
+- Fleshed out Partner Embed
+- Changed s_time value in add_partner
+- Added `get_suggestion_time` method
+- Changed type of `s_time` for add_partner
+- Fleshed out `update_partner` method
+- Fleshed out `love_message_loop`
+- Added `lover_handler` method
+- Fleshed out `love_partner_update` method
+- Fixed typos
+- Fixed broken packages
+- added logic for str time handling
+- added autocomplete for Timezone handling
+- Added kink info
+- Added partner kinks lookup
+- Improved logic of partner listing. Changed embeds.
+- Added partner add validation and approval.
+- Fixed logic in user_update
+- Created row_todict func
+- Created merg_dict func
+- Left TODOs for Danky
+Added `?` option for listing options
+Updated Class's for Lover Interaciton.
+Co-authored-by: NightSlasher35 <NightSlasher35@users.noreply.github.com>
+Formatted entire cog
+Fixed multiple type hints
+Added roles and positions
+Fixed some issues and added error handling on cog reloads.
+Co-authored-by: Leonardo <leonardocavenago05@gmail.com>
+enforced type checking and auto pep8
+
 # Changelog
 
 ## Diablo 4 item parsing cog
