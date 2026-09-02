@@ -988,15 +988,10 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
         if self.restart_requested is True:
             return
 
-        # The guild's own prefixes as well as the global one. Reading `_prefixes` alone meant a
-        # command invoked with a prefix somebody had added kept its invocation for the full
-        # `message_timeout` instead of being cleaned up on the spot.
-        prefixes: set[str] = set(self._prefixes)
-        if context.guild is not None:
-            prefixes.update(await self.guild_prefixes(guild_id=context.guild.id))
-
+        # If the command was invoked by a prefix or mention, delete immediately instead of
+        # waiting for the `message_timeout` delay set in `on_command`.
         if (
-            context.message.content.startswith(tuple(prefixes))
+            context.prefix is not None
             and isinstance(context.me, (discord.Member, discord.Role))
             and context.message.channel.permissions_for(context.me).manage_messages
         ):
