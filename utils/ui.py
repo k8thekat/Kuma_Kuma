@@ -35,7 +35,75 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
-__all__ = ("GenericButton", "KumaView")
+__all__ = ("GenericButton", "KumaLayoutView", "KumaView")
+
+
+class KumaLayoutView[V: KumaCog](discord.ui.LayoutView):
+    """Base :class:`discord.ui.LayoutView` for Kuma Kuma Bear.
+
+    Stores the parent cog and the person who owns the panel, gates every interaction to that
+    person, and provides layout helpers that every CV2 panel repeats.
+
+    .. warning::
+        A Components V2 message cannot carry ``content`` or ``embeds``, so anything a reader needs
+        has to be a :class:`discord.ui.TextDisplay` inside the layout.
+
+    Attributes
+    ----------
+    cog: :class:`KumaCog`
+        The parent cog.
+    owner: :class:`Union[discord.Member, discord.User]`
+        The Discord user or member the panel belongs to.
+
+    """
+
+    def __init__(self, *, cog: V, owner: Union[discord.Member, discord.User], timeout: Optional[float] = 180.0) -> None:
+        """Create a :class:`KumaLayoutView` instance.
+
+        Parameters
+        ----------
+        cog: :class:`KumaCog`
+            The parent cog.
+        owner: :class:`Union[discord.Member, discord.User]`
+            The person allowed to interact with the panel.
+        timeout: :class:`Optional[float]`, optional
+            Seconds before the view stops accepting input, by default ``180.0``.
+
+        """
+        super().__init__(timeout=timeout)
+        self.cog: V = cog
+        self.owner: Union[discord.Member, discord.User] = owner
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """Rejects anyone but the person the panel was opened for."""
+        if interaction.user.id != self.owner.id:
+            await interaction.response.send_message(
+                content=f"That panel isn't yours! {self.cog.emoji_table.kuma_shrug}",
+                ephemeral=True,
+            )
+            return False
+        return True
+
+    # -- layout helpers ------------------------------------------------------
+
+    @staticmethod
+    def separator(*, large: bool = False) -> discord.ui.Separator:
+        """Returns a :class:`discord.ui.Separator` with the requested spacing.
+
+        Parameters
+        ----------
+        large: :class:`bool`, optional
+            Use :attr:`discord.SeparatorSpacing.large` instead of the default small spacing,
+            by default ``False``.
+
+        Returns
+        -------
+        :class:`discord.ui.Separator`
+            A separator ready to add to a container.
+
+        """
+        spacing: discord.SeparatorSpacing = discord.SeparatorSpacing.large if large else discord.SeparatorSpacing.small
+        return discord.ui.Separator(spacing=spacing)
 
 
 class ViewParams(TypedDict):
