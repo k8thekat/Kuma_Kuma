@@ -87,6 +87,8 @@ if TYPE_CHECKING:
     from discord.ext.tasks import Loop
     from discord.state import ConnectionState
 
+    from utils.history import SentMessageRecord
+
 
 class VersionInfo(NamedTuple):
     major: int
@@ -206,14 +208,14 @@ class LogHandler:
         webhook_url: str = "",
         local_dev: bool = False,
         *,
-        session: aiohttp.ClientSession | CachedSession,
+        session: Union[aiohttp.ClientSession, CachedSession],
     ) -> None:
         self.logger = logging.getLogger()
         if local_dev is False:
-            self.logger.info("Sentry SDK is Enabled -- Flag: %s", local_dev)
+            self.logger.info("Sentry SDK is Enabled — Flag: %s", local_dev)
             sentry_sdk.init(dsn=sentry, integrations=[AioHttpIntegration(), AsyncioIntegration()])
         else:
-            self.logger.warning("Sentry SDK is Disabled -- Flag: %s", local_dev)
+            self.logger.warning("Sentry SDK is Disabled — Flag: %s", local_dev)
         self.webhook_url: str = webhook_url
         self.session = session
         self.path: Path = Path(__file__).parent.joinpath("logs")
@@ -244,7 +246,7 @@ class LogHandler:
         self.logger.setLevel(level=level)
         logging.getLogger("discord.client").addFilter(_DiscordReconnectFilter())
 
-    def _tail_entries(self, entries: int, *, levels: frozenset[str] | None, max_bytes: int) -> list[str]:
+    def _tail_entries(self, entries: int, *, levels: Optional[frozenset[str]], max_bytes: int) -> list[str]:
         """Read backwards from EOF until ``entries`` matching records are in hand.
 
         Log files are append-only and we always want the newest records, so
@@ -258,7 +260,7 @@ class LogHandler:
         ----------
         entries: :class:`int`
             How many matching records are wanted.
-        levels: :class:`frozenset[str]` | None
+        levels: :class:`Optional[frozenset[str]]`
             Level names to keep, or None for all.
         max_bytes: :class:`int`
             Stop widening the window past this many bytes.
@@ -298,7 +300,7 @@ class LogHandler:
         self,
         entries: int = 15,
         *,
-        levels: str | Iterable[str] | None = None,
+        levels: Optional[Union[str, Iterable[str]]] = None,
         colour: bool = False,
         max_chars: int = 1900,
         max_bytes: int = LOG_TAIL_MAX_BYTES,
@@ -314,7 +316,7 @@ class LogHandler:
         entries: :class:`int`, optional
             How many of the most recent records to return, by default 15.
             Values below 1 are clamped to 1.
-        levels: :class:`str` | :class:`Iterable[str]` | None, optional
+        levels: :class:`Optional[Union[str, Iterable[str]]]`, optional
             Keep only these levels, by default None (keep everything). Accepts
             ``"ERROR"``, ``"ERROR,WARNING"``, ``"error warning"`` or a list.
         colour: :class:`bool`, optional
@@ -354,7 +356,7 @@ class LogHandler:
             raise ValueError(msg) from e
 
         # Walk backwards dropping whole records until the budget is met, so the
-        # excerpt never opens mid-traceback. Colour is applied afterwards --
+        # excerpt never opens mid-traceback. Colour is applied afterwards —
         # trimming coloured text would slice an escape sequence in half.
         kept: list[str] = []
         budget: int = max_chars
@@ -401,8 +403,8 @@ class LogHandler:
             msg = f"The log file size is larger than Discord Webhook limit (10Mb). | size: {size}"
             raise OverflowError(msg)
 
-        # Our own session, not a fresh one. The old call built a `ClientSession` inline and never
-        # closed it, so every log upload leaked a connector and an "Unclosed client session" warning.
+        # Reuse our own session; building a `ClientSession` inline here leaks a connector on every
+        # upload and an "Unclosed client session" warning with it.
         webhook: discord.Webhook = discord.Webhook.from_url(url=self.webhook_url, session=self.session)
         await webhook.send(file=discord.File(fp=self.cur_log.resolve()))
 
@@ -476,7 +478,7 @@ class KumaCommandTree(app_commands.CommandTree):
 
     async def find_mention_for(
         self,
-        command: app_commands.Command | app_commands.Group | str,
+        command: Union[app_commands.Command, app_commands.Group, str],
         *,
         guild: Optional[discord.abc.Snowflake] = None,
     ) -> Optional[str]:
@@ -537,12 +539,11 @@ class KumaCommandTree(app_commands.CommandTree):
         interaction: Interaction,
         error: app_commands.AppCommandError,
     ) -> None:
-        LOGGER.exception("Exception occurred in the CommandTree:", exc_info=error)
+        LOGGER.exception("<%s.%s> | Exception occurred in the CommandTree:", __class__.__name__, "on_error", exc_info=error)
 
-        # Answered first, and separately from the report below. Discord shows a deferred interaction
-        # as "thinking..." until something replies to it, so a command that raised after its `defer`
-        # used to hang there forever — and the report is the part that can fail, which would take
-        # the reply down with it if the caller were told second.
+        # Answer the caller first, separately from the report below. A deferred interaction shows
+        # "thinking..." until something replies, and the report is the part that can fail — replying
+        # first keeps a failed report from taking the caller's reply down with it.
         await self.answer_caller(interaction=interaction)
         try:
             await report_error(
@@ -556,7 +557,7 @@ class KumaCommandTree(app_commands.CommandTree):
                 channel=interaction.channel,
             )
         except Exception:
-            LOGGER.exception("Could not report a CommandTree error to the owner:")
+            LOGGER.exception("<%s.%s> | Could not report a CommandTree error to the owner:", __class__.__name__, "on_error")
 
     async def answer_caller(self, *, interaction: Interaction) -> None:
         """Closes off a failed command's interaction, so the caller isn't left watching a spinner."""
@@ -564,7 +565,7 @@ class KumaCommandTree(app_commands.CommandTree):
             f"That command hit an error, so it didn't finish. It has been logged and Kat has been told. {self.client.emoji_table.kuma_sad}"
         )
         with contextlib.suppress(discord.HTTPException):
-            if interaction.response.is_done():
+            if interaction.response.is_done() is True:
                 await interaction.followup.send(content=content, ephemeral=True)
             else:
                 await interaction.response.send_message(content=content, ephemeral=True)
@@ -603,9 +604,9 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
     """Per guild prefixes off the `prefix` table, keyed by guild ID. See `guild_prefixes`"""
 
     # The owner_ids is updated via the Trust Add/Remove Command.
-    owner_ids: set[int]  # type: ignore - Collections are immutable --
+    owner_ids: set[int]  # type: ignore - Parent annotates this attr far more strictly than we need.
     # My Discord User ID. `owner_ids` grows at runtime via the `trusted` command, so anything that
-    # should stay mine alone — eg. the `restart` command — checks against this instead.
+    # should stay mine alone — eg. protecting my own ID from `trusted remove` — checks against this.
     owner_user_id: int = 144462063920611328
 
     # Set by `restart()`; read by `__main__` once the loop is done to decide whether to re-exec.
@@ -773,12 +774,12 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
             self.owner_ids = await _get_trusted(bot=self)  # type: ignore - As long as it's a set of Ints it's fine.
 
         except DatabaseError:
-            LOGGER.exception("<%s.setup_hook()> | Encountered an error.", __class__.__name__)
+            LOGGER.exception("<%s.%s> | Encountered an error.", __class__.__name__, "setup_hook")
             msg = "Unable to connect to the database."
             raise DatabaseError(msg)  # noqa: B904
 
     async def close(self) -> None:
-        if self._message_cleanup.is_running():
+        if self._message_cleanup.is_running() is True:
             self._message_cleanup.cancel()
         await super().close()
 
@@ -791,12 +792,12 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
             LOGGER.error("<%s.%s> | We encountered an error fetching the application emojis.", __class__.__name__, "on_ready")  # noqa: TRY400
             self._app_emojis = []
 
-    def is_me(self, /, snowflake: discord.Message | discord.Thread) -> bool:
+    def is_me(self, /, snowflake: Union[discord.Message, discord.Thread]) -> bool:
         """Owner/Author check of an object.
 
         Parameters
         ----------
-        snowflake: :class:`discord.Message | discord.Thread`
+        snowflake: :class:`Union[discord.Message, discord.Thread]`
             An object containing a :class:`discord.Member | discord.User` attribute for comparison against a :class:`discord.ClientUser`.
 
         Returns
@@ -817,7 +818,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
     async def guild_prefixes(self, *, guild_id: int) -> frozenset[str]:
         """Retrieves a guild's registered prefixes, reading the database only on a cache miss.
 
-        .. note:
+        .. note::
             Entries are dropped by the `prefix` commands via :meth:`invalidate_prefixes` rather than
             given a lifetime, so a change is live on the very next message and a quiet guild never
             re-reads.
@@ -923,32 +924,41 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
             pass
 
     async def on_command_error(self, context: KumaContext, error: commands.CommandError) -> None:
-        # --- User-facing ephemeral reply ---
         if context.command is None and isinstance(error, commands.errors.CommandNotFound):
+            LOGGER.warning(
+                "<%s.%s> | Command not found | User: %s | Content: %s",
+                __class__.__name__,
+                "on_command_error",
+                context.author,
+                context.message.content,
+            )
             await context.send(
                 content=f"I can't run the command `{context.message.content}` as it doesn't exist! {self.emoji_table.kuma_crying}",
                 ephemeral=True,
                 delete_after=30,
             )
-        elif context.command is not None:
-            LOGGER.error("We encountered an error executing: %s", context.command, exc_info=error)
+            return
+        if context.command is not None:
+            LOGGER.error(
+                "<%s.%s> | We encountered an error executing: %s", __class__.__name__, "on_command_error", context.command, exc_info=error
+            )
             if isinstance(error, commands.TooManyArguments):
                 await context.send(
-                    content=f"> You called the `{context.command.name}` command with too many arguments. {self.emoji_table.kuma_rawr}",
+                    content=f"> You called the `{context.command.qualified_name}` command with too many arguments. {self.emoji_table.kuma_rawr}",
                     ephemeral=True,
                     delete_after=30,
                 )
             elif isinstance(error, commands.MissingRequiredArgument):
                 await context.send(
                     content=(
-                        f"> You called `{context.command.name}` command without the required arguments. {self.emoji_table.kuma_head_clench}"
+                        f"> You called `{context.command.qualified_name}` command without the required arguments. {self.emoji_table.kuma_head_clench}"
                     ),
                     ephemeral=True,
                     delete_after=30,
                 )
             else:
                 await context.send(
-                    content=f"> We encountered an error executing the command {context.command.name}. {self.emoji_table.kuma_shrug}",
+                    content=f"> We encountered an error executing the command `{context.command.qualified_name}`. {self.emoji_table.kuma_shrug}",
                     ephemeral=True,
                     delete_after=30,
                 )
@@ -967,7 +977,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
                 delete_after=30,
             )
 
-        # --- Record and report to owner ---
+        # Record and report to self...
         try:
             await report_error(
                 pool=self.pool,
@@ -983,10 +993,8 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
             LOGGER.exception("<%s.%s> | Could not report a prefix command error to the owner:", __class__.__name__, "on_command_error")
 
     async def on_command_completion(self, context: commands.Context) -> None:
-        # `restart` deletes its own invocation before it asks to be closed, and this races the close
-        # it just scheduled; either way the delete below has nothing left to do.
-        if self.restart_requested is True:
-            return
+        # if self.restart_requested is True:
+        #     return
 
         # If the command was invoked by a prefix or mention, delete immediately instead of
         # waiting for the `message_timeout` delay set in `on_command`.
@@ -999,12 +1007,15 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
                 await context.message.delete()
 
             except discord.errors.NotFound:
-                msg = "<%s.%s> | Unable to find the `discord.Message` belonging to this %s object."
-                LOGGER.error(msg, __class__.__name__, "on_command_completion", type(context))  # noqa: TRY400 # I don't want to raise an exception as I know the error already.
-                return
+                LOGGER.debug("<%s.%s> | Unable to find the `discord.Message`", __class__.__name__, "on_command_completion")
             except Exception as e:
-                msg = "We encountered an error executing: %s"
-                LOGGER.exception(msg, context.command, exc_info=e)
+                LOGGER.exception(
+                    "<%s.%s> | We encountered an error executing: %s",
+                    __class__.__name__,
+                    "on_command_completion",
+                    context.command,
+                    exc_info=e,
+                )
 
     async def on_reaction_add(self, reaction: discord.Reaction, user: Union[discord.Member, discord.User]) -> None:
         """Called when a message has a reaction added to it.
@@ -1076,15 +1087,19 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
         cutoff: datetime.timedelta = datetime.timedelta(seconds=self.message_timeout)
 
         for guild in self.guilds:
-            records = await self.msg_history.recent(limit=self.msg_history.max_entries, guild_id=guild.id)
+            records: list[SentMessageRecord] = await self.msg_history.recent(limit=self.msg_history.max_entries, guild_id=guild.id)
             expired_ids: list[int] = []
 
             for record in records:
                 if datetime.datetime.now(tz=datetime.UTC) - record.created_at < cutoff:
                     continue
 
-                channel = guild.get_channel_or_thread(record.channel_id)
-                if channel is None or not hasattr(channel, "get_partial_message"):
+                channel: Optional[Union[discord.abc.GuildChannel, discord.Thread]] = guild.get_channel_or_thread(record.channel_id)
+                if (
+                    channel is None
+                    or not hasattr(channel, "get_partial_message")
+                    or isinstance(channel, (discord.ForumChannel, discord.CategoryChannel))
+                ):
                     # Channel was deleted, lost access, or is not messageable — discard the row.
                     expired_ids.append(record.message_id)
                     continue
@@ -1130,11 +1145,11 @@ def ini_load() -> KumaConfig:
     """Parse my local ini file."""
     _setting_file: Path = Path("./local.ini")
     if _setting_file.is_file():
-        settings = ConfigParser(converters={"list": lambda setting: [value.strip() for value in setting.split(",")]})
+        settings: ConfigParser = ConfigParser(converters={"list": lambda setting: [value.strip() for value in setting.split(",")]})
         settings.read(filenames=_setting_file.as_posix())
         # login creds
         try:
-            _temp = KumaConfig(
+            _temp: KumaConfig = KumaConfig(
                 token=settings.get(section="DISCORD", option="token"),
                 sentry_io=settings.get(section="SENTRY_IO", option="dsn"),
                 logging_webhook=settings.get(section="DISCORD", option="logging_webhook"),
@@ -1162,7 +1177,7 @@ async def main(*, local_dev: bool = False, log_level: int = logging.INFO) -> boo
     # Ensure the cache directory exists before any SQLite backend opens a file in it.
     CACHE_DIR.mkdir(exist_ok=True)
     # TODO(@k8thekat) Implement -> https://requests-cache.readthedocs.io/en/stable/user_guide/expiration.html
-    _cache = SQLiteBackend(
+    _cache: SQLiteBackend = SQLiteBackend(
         cache_name=CACHE_DIR.joinpath("kuma_kuma_cache").as_posix(),
         autoclose=True,
         expire_after=86400,
