@@ -56,7 +56,7 @@ class PanelAccess(Enum):
     """Who may use a panel's buttons, chosen per command invocation.
 
     :meth:`owner` maps each level onto a view owner: the invoker for :attr:`only_me`, the bot for
-    :attr:`public`, or ``None`` for :attr:`preview` — a display-only panel no one may interact with.
+    :attr:`public`, or ``None`` for :attr:`preview` - a display-only panel no one may interact with.
 
     """
 
@@ -368,7 +368,7 @@ class KumaContainer(discord.ui.Container[KumaLayoutView]):
         *children: :class:`discord.ui.Item`
             Initial child items, forwarded to :class:`discord.ui.Container`.
         include_footer: :class:`bool`, optional
-            Add a footer during :meth:`_kuma_prepare` — a page counter while the view paginates, a
+            Add a footer during :meth:`_kuma_prepare` - a page counter while the view paginates, a
             plain credit line otherwise, by default ``False``.
         **kwargs: :class:`Unpack[ContainerParams]`
             Remaining :class:`discord.ui.Container` keyword arguments (``accent_colour``, ``spoiler``, ``id``).
@@ -541,7 +541,7 @@ class KumaView(discord.ui.View):
         """Index into :attr:`embeds`, clamped to the last valid index.
 
         .. note::
-            Clamps to ``len(embeds) - 1``, not ``len(embeds)`` — the latter is one past the end and
+            Clamps to ``len(embeds) - 1``, not ``len(embeds)`` - the latter is one past the end and
             would raise :class:`IndexError` on the very lookup this property exists to make safe.
         """
         if self.embeds is not None and self._indx > len(self.embeds) - 1:
@@ -703,8 +703,8 @@ class KumaView(discord.ui.View):
 
         .. warning::
             This deliberately does **not** overwrite an existing footer. Doing so destroys anything the
-            caller put there — `claude.py` writes the run cost into the final page's footer and
-            `ollama.py` the token count — and since the embed is mutated in place the original text is
+            caller put there - `claude.py` writes the run cost into the final page's footer and
+            `ollama.py` the token count - and since the embed is mutated in place the original text is
             lost for good, not just for the current render. Callers that want page numbers alongside
             their own text should build both into the footer themselves.
 
@@ -735,7 +735,7 @@ class KumaView(discord.ui.View):
 
         self.recent_interaction = interaction
         # Guard against underflow: on the first page there is nothing to go back to, and decrementing
-        # would leave indx at -1, which silently renders `embeds[-1]` — the *last* page.
+        # would leave indx at -1, which silently renders `embeds[-1]` - the *last* page.
         if self.indx > 0:
             self.indx -= 1
 

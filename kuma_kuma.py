@@ -120,7 +120,7 @@ async def _get_prefix(bot: Kuma_Kuma, message: discord.Message) -> list[str]:
     """Retrieves the prefixes for the current guild.
 
     Always includes :data:`DEFAULT_PREFIX`, so the documented `kuma` prefix works in a guild whose
-    `prefix` table row was never written — which was every guild but my own.
+    `prefix` table row was never written - which was every guild but my own.
 
     Parameters
     ----------
@@ -217,10 +217,10 @@ class LogHandler:
     ) -> None:
         self.logger = logging.getLogger()
         if local_dev is False:
-            self.logger.info("Sentry SDK is Enabled — Flag: %s", local_dev)
+            self.logger.info("Sentry SDK is Enabled - Flag: %s", local_dev)
             sentry_sdk.init(dsn=sentry, integrations=[AioHttpIntegration(), AsyncioIntegration()])
         else:
-            self.logger.warning("Sentry SDK is Disabled — Flag: %s", local_dev)
+            self.logger.warning("Sentry SDK is Disabled - Flag: %s", local_dev)
         self.webhook_url: str = webhook_url
         self.session = session
         self.path: Path = Path(__file__).parent.joinpath("logs")
@@ -258,7 +258,7 @@ class LogHandler:
         reading the whole file to discard all but the last handful is wasted
         I/O. This seeks to a window at the end and doubles it until the window
         holds enough records, the whole file has been read, or ``max_bytes`` is
-        reached — the last of which matters when a narrow ``levels`` filter
+        reached - the last of which matters when a narrow ``levels`` filter
         would otherwise walk the entire file looking for one CRITICAL.
 
         Parameters
@@ -328,7 +328,7 @@ class LogHandler:
             Re-apply :class:`KumaLogFormatter` colours, by default False. Only
             fence the result as :attr:`CodeFormat.ANSI` when this is True.
         max_chars: :class:`int`, optional
-            A hard ceiling on the returned length, by default 1900 — Discord's
+            A hard ceiling on the returned length, by default 1900 - Discord's
             2000 character limit less room for a fence. Whole records are
             dropped from the front to fit; a single oversized record is cut.
         max_bytes: :class:`int`, optional
@@ -361,7 +361,7 @@ class LogHandler:
             raise ValueError(msg) from e
 
         # Walk backwards dropping whole records until the budget is met, so the
-        # excerpt never opens mid-traceback. Colour is applied afterwards —
+        # excerpt never opens mid-traceback. Colour is applied afterwards -
         # trimming coloured text would slice an escape sequence in half.
         kept: list[str] = []
         budget: int = max_chars
@@ -547,7 +547,7 @@ class KumaCommandTree(app_commands.CommandTree):
         LOGGER.exception("<%s.%s> | Exception occurred in the CommandTree:", __class__.__name__, "on_error", exc_info=error)
 
         # Answer the caller first, separately from the report below. A deferred interaction shows
-        # "thinking..." until something replies, and the report is the part that can fail — replying
+        # "thinking..." until something replies, and the report is the part that can fail - replying
         # first keeps a failed report from taking the caller's reply down with it.
         await self.answer_caller(interaction=interaction)
         try:
@@ -579,8 +579,8 @@ class KumaCommandTree(app_commands.CommandTree):
 def command_names(cog: commands.Cog) -> tuple[str, ...]:
     """Names every command a cog owns, group children excluded.
 
-    `get_commands` and `get_app_commands` both return the top level only — the `walk_` variants are
-    the ones that recurse — so a group contributes its own name and none of its children. That is
+    `get_commands` and `get_app_commands` both return the top level only - the `walk_` variants are
+    the ones that recurse - so a group contributes its own name and none of its children. That is
     what a lookup wants: a hint or a listener belongs to the cog, never to one leaf of a group.
 
     Parameters
@@ -611,7 +611,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
     # The owner_ids is updated via the Trust Add/Remove Command.
     owner_ids: set[int]  # type: ignore - Parent annotates this attr far more strictly than we need.
     # My Discord User ID. `owner_ids` grows at runtime via the `trusted` command, so anything that
-    # should stay mine alone — eg. protecting my own ID from `trusted remove` — checks against this.
+    # should stay mine alone - eg. protecting my own ID from `trusted remove` - checks against this.
     owner_user_id: int = 144462063920611328
 
     # Set by `restart()`; read by `__main__` once the loop is done to decide whether to re-exec.
@@ -630,7 +630,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
     """Command name to the qualified name of the cog that owns it.
 
     Maintained a cog at a time by :meth:`add_cog` and :meth:`remove_cog` rather than rebuilt. Every
-    load, unload and reload routes through those two — `reload_extension` is remove then add — so
+    load, unload and reload routes through those two - `reload_extension` is remove then add - so
     there is no path by which a cog arrives or leaves without the map hearing about it.
     """
     msg_history: MessageHistory
@@ -816,7 +816,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
 
         if isinstance(snowflake, discord.Thread):
             # By ID rather than `Thread.owner`, which resolves through the member cache and answers
-            # `None` for an uncached member — which would read as "not mine" for a thread that is.
+            # `None` for an uncached member - which would read as "not mine" for a thread that is.
             return snowflake.owner_id == self.user.id
         return False
 
@@ -872,7 +872,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
         `reload` does; the property setter detaches the old command and registers the new one.
 
         .. note::
-            This method itself lives in `kuma_kuma.py`, which `reload` never re-executes — so
+            This method itself lives in `kuma_kuma.py`, which `reload` never re-executes - so
             changing *this* still needs a restart. Everything in `utils/help.py` no longer does.
 
         """
@@ -918,8 +918,8 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
         LOGGER.info("%s used %s -> %s", context.author.name, cog_name, context.command)
         # Deletes the command invocation message.
         try:
-            # A `Repl` session keeps answering the message that started it — every result is sent
-            # with it as the reply reference — so deleting the invocation would leave the whole
+            # A `Repl` session keeps answering the message that started it - every result is sent
+            # with it as the reply reference - so deleting the invocation would leave the whole
             # session hanging off "Original message was deleted". The session ends itself instead.
             if context.cog is not None and type(context.cog).__name__ == "Repl":
                 return
@@ -1070,7 +1070,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
         """Shuts the bot down and asks `__main__` to bring the process straight back up.
 
         The actual re-exec cannot happen here. `os.execv` replaces the process image on the spot, so
-        calling it from inside a command would abandon a running event loop — no `cog_unload`, no
+        calling it from inside a command would abandon a running event loop - no `cog_unload`, no
         closed pool, no closed session; the very things `Kuma.bash`s SIGTERM handling was added to
         preserve. Instead we flag it, `close()` unwinds `main()` normally, and the exec happens once
         `asyncio.run()` has returned and everything is shut.
@@ -1078,7 +1078,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
         .. note::
             The close is handed to the loop rather than awaited. Awaiting it here closes the client
             from inside the invocation chain that is still running us, and `Bot.invoke` has a
-            `command_completion` left to dispatch — `close()` having already set `Client.loop` to
+            `command_completion` left to dispatch - `close()` having already set `Client.loop` to
             `MISSING`, that dispatch raises ``'_MissingSentinel' object has no attribute
             'create_task'``. Returning first lets `invoke` finish against a live loop.
 
@@ -1105,7 +1105,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
                     or not hasattr(channel, "get_partial_message")
                     or isinstance(channel, (discord.ForumChannel, discord.CategoryChannel))
                 ):
-                    # Channel was deleted, lost access, or is not messageable — discard the row.
+                    # Channel was deleted, lost access, or is not messageable - discard the row.
                     expired_ids.append(record.message_id)
                     continue
 
@@ -1114,7 +1114,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
                     await partial.delete()
                 except (discord.NotFound, discord.Forbidden, discord.HTTPException):
                     LOGGER.debug(
-                        "<%s.%s> | Unable to delete message %s in channel %s — removing record.",
+                        "<%s.%s> | Unable to delete message %s in channel %s - removing record.",
                         __class__.__name__,
                         "_message_cleanup",
                         record.message_id,
@@ -1215,7 +1215,7 @@ async def main(*, local_dev: bool = False, log_level: int = logging.INFO) -> boo
 def parse_args() -> argparse.Namespace:
     """Parses the mode flag `Kuma.bash` passes through.
 
-    Live is the default so a bare `python kuma_kuma.py` behaves exactly as it always has — only an
+    Live is the default so a bare `python kuma_kuma.py` behaves exactly as it always has - only an
     explicit `--dev` turns Sentry off.
 
     Returns
@@ -1235,7 +1235,7 @@ def parse_args() -> argparse.Namespace:
 def _on_terminate(signum: int, frame: object) -> None:  # noqa: ARG001
     """Turns SIGTERM into the same shutdown path as Ctrl-C.
 
-    Python's default SIGTERM handler kills the process outright — no unwinding, so
+    Python's default SIGTERM handler kills the process outright - no unwinding, so
     `commands.Bot.close()` never runs and neither does any `cog_unload`. That matters here because
     `ClaudeCog.cog_unload` is what kills in-flight `claude` subprocesses; without this a
     `Kuma.bash -live` restart would leave them orphaned.
@@ -1258,7 +1258,7 @@ if __name__ == "__main__":
 
     if restart is True:
         LOGGER.info("Restarting Kuma Kuma Bear. | argv: %s", sys.orig_argv)
-        # `execv` replaces us in place rather than forking, so the PID never changes — which is the
+        # `execv` replaces us in place rather than forking, so the PID never changes - which is the
         # whole point. `Kuma.bash` wrote that PID to `kuma_kuma.py.pid`, and a spawned child would
         # leave the file pointing at a corpse, so `-status` and `-stop` would never find the bot
         # again. `sys.orig_argv` is the entire original command line, interpreter flags included, so
