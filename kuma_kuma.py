@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Reminder to use `nohup ./kuma_kuma.py > /dev/null &`
+# Reminder: launch with `./Kuma.bash`, which backgrounds the bot and tracks its PID for restart/stop.
 """Copyright (C) 2021-2022 Katelynn Cadwallader.
 
 This file is part of Kuma Kuma Bear, a Discord Bot.
@@ -111,6 +111,9 @@ LOG_TAIL_MAX_BYTES = 4 * 1024 * 1024
 CACHE_DIR: Path = Path(__file__).parent.joinpath("cache")
 DB_PATH: str = CACHE_DIR.joinpath(DB_FILENAME).as_posix()
 LOGGER: logging.Logger = logging.getLogger(__name__)
+# Console display name for the formatter's `%(name)s`; the manager key stays `kuma_kuma` so the
+# hierarchy, child loggers and Sentry's logger-name capture are unchanged.
+LOGGER.name = "Kuma Kuma"
 
 
 async def _get_prefix(bot: Kuma_Kuma, message: discord.Message) -> list[str]:
@@ -154,7 +157,9 @@ async def _get_trusted(bot: Kuma_Kuma) -> set[int]:
         A set of Owner IDs.
 
     """
-    trusted: set[int] = bot.owner_ids
+    # Copy the seeded IDs rather than aliasing the live set, so a re-call recomputes from the seeds
+    # plus the table instead of accumulating into `bot.owner_ids` in place.
+    trusted: set[int] = set(bot.owner_ids)
     async with bot.pool.acquire() as conn:
         res: list[Row] = await conn.fetchall("""SELECT ownerid FROM owners""")
         if len(res) >= 1:
@@ -550,7 +555,7 @@ class KumaCommandTree(app_commands.CommandTree):
                 pool=self.client.pool,
                 owner=self.client.owner,
                 error=error,
-                command=(interaction.command and interaction.command.name) or "Unknown",
+                command=(interaction.command and interaction.command.qualified_name) or "Unknown",
                 command_type="app",
                 user=interaction.user,
                 guild=interaction.guild,
@@ -618,7 +623,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
     start_time: float = time.time()
     _session: CachedSession
     _loops: list[Loop[Any]]
-    # These are duplicated and located inside any "Cog" class that inherits "Kuma_Cog"
+    # These are duplicated and located inside any "Cog" class that inherits "KumaCog"
     emoji_table: KumaEmojiTable = KumaEmojiTable()
     resources: KumaResources = KumaResources()
     command_owners: dict[str, str]
@@ -784,7 +789,6 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
         await super().close()
 
     async def on_ready(self) -> None:
-        LOGGER.name = "Kuma Kuma"
         LOGGER.info("Kuma Kuma Bear <3")
         try:
             self._app_emojis: list[discord.Emoji] = await self.fetch_application_emojis()
@@ -798,7 +802,8 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
         Parameters
         ----------
         snowflake: :class:`Union[discord.Message, discord.Thread]`
-            An object containing a :class:`discord.Member | discord.User` attribute for comparison against a :class:`discord.ClientUser`.
+            An object containing a :class:`Union[discord.Member, discord.User]` attribute, for
+            comparison against a :class:`discord.ClientUser`.
 
         Returns
         -------
@@ -972,7 +977,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
                 error,
             )
             await context.send(
-                content=f"> We encountered an {type(error)} executing the command. {self.emoji_table.kuma_peak}",
+                content=f"> We encountered a `{type(error).__name__}` error executing the command. {self.emoji_table.kuma_peak}",
                 ephemeral=True,
                 delete_after=30,
             )
@@ -1149,7 +1154,7 @@ def ini_load() -> KumaConfig:
         settings.read(filenames=_setting_file.as_posix())
         # login creds
         try:
-            _temp: KumaConfig = KumaConfig(
+            config: KumaConfig = KumaConfig(
                 token=settings.get(section="DISCORD", option="token"),
                 sentry_io=settings.get(section="SENTRY_IO", option="dsn"),
                 logging_webhook=settings.get(section="DISCORD", option="logging_webhook"),
@@ -1160,11 +1165,10 @@ def ini_load() -> KumaConfig:
             msg = "Failed to parse the local.ini"
             LOGGER.exception(msg, exc_info=e)
             raise ValueError(msg) from e
-            # raise ValueError(msg)
     else:
         msg = "The <Path> provided was not a regular <File>."
         raise ValueError(msg)
-    return _temp
+    return config
 
 
 # TODO: Change row factory for sqlite3.Row to use a dict factory. -> https://docs.python.org/3/library/sqlite3.html#sqlite3-howto-row-factory
