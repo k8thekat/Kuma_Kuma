@@ -33,9 +33,9 @@ def parse_log(self, entries: int = 15, *, colour: bool = False) -> str:
 
     Parameters
     ----------
-    entries: :class:`int`, optional
+    entries : :class:`int`, optional
         How many of the most recent records to return, by default 15.
-    colour: :class:`bool`, optional
+    colour : :class:`bool`, optional
         Re-apply :class:`KumaLogFormatter` colours, by default False.
 
     Returns
@@ -52,6 +52,15 @@ def parse_log(self, entries: int = 15, *, colour: bool = False) -> str:
 ```
 
 - `:class:`X`` on every parameter and return type, `Optional[...]` included.
+- **Space-colon-space separator: `name : type`, not `name: type`.** The space *before* the colon is
+  required; it is the separator numpydoc's own format spec uses (`first : array_like`) and the one
+  Pylance splits on. Written `entries: :class:`int``, Pylance mis-parses the type slot and renders a
+  raw `%%REF` placeholder in the hover instead of a link (needs
+  `python.analysis.supportRestructuredText`); `entries : :class:`int`` resolves cleanly.
+- **`Raises` lists the exception bare**, no role: `FileNotFoundError`, not `:class:`FileNotFoundError``.
+  That is what numpydoc specifies and Sphinx auto-links it. `:class:` roles belong on the
+  `Parameters`/`Returns`/`Attributes` type lines only; if a `Raises` entry ever needs an explicit
+  cross-reference role the correct one is `:exc:`, never `:class:` and never `:err:` (not a real role).
 - `, optional` and `, by default X` on anything with a default.
 - Blank line before the closing `"""`.
 - `.. note::` and `.. warning::` for caveats worth interrupting the reader for.
@@ -69,9 +78,16 @@ not a running narration.
   Avoid them in parameters, class attributes, and longer-lived variables where the intent
   isn't immediately clear: `for attachment in ...`, not `for a in ...`.
 - Line length is **140**.
-- **No em dashes (`—`); no ` -- ` asides.** Neither is k8thekat's hand; both are Claude tells. Where
-  you would reach for one, use nothing, a single `-`, or `;` / a comma to join the clauses. Copied
-  content (e.g. the `UnicodeTable`) is exempt.
+- **No em dashes (`—`) anywhere; no ` -- ` asides.** k8thekat cannot type an em dash, so one in the
+  source is proof the line was not hers - it is the single most reliable Claude tell. This is absolute
+  and covers **comments, docstrings, and every string the bot sends** (replies, error notes,
+  `app_commands` `describe`/`choices` text), not just prose comments. Where you would reach for one,
+  use nothing, a single `-`, or `;` / a comma to join the clauses. Copied content (e.g. the
+  `UnicodeTable`) is the only exemption.
+- **Section markers use regions, not dashed banners.** A structural block gets a folding region,
+  `# region --- Name ---` closed by `# endregion` (see the top of `extensions/sonarr_radarr.py`); a
+  section inside a method body gets a plain informal comment, `# What this does.` on its own line. A
+  `# -- Name ------` banner is a Claude tell; do not add them.
 - Keep them **short**. Hers run one or two lines and stop; a comment that needs a paragraph is
   usually a `.. note::` on the docstring instead. Do not narrate the history of a bug in a comment;
   what it protects against is worth a clause, not a story. `CHANGELOG.md` is where the history goes.
@@ -83,10 +99,14 @@ not a running narration.
 
 - Lazy `%s` formatting, never f-strings in a logging call (0 occurrences of the latter in the repo).
 - The `<Class.method> | Thing | Key: value` shape is the house format.
-- `__class__.__name__`, never `type(self).__name__`. It resolves inside a `@staticmethod` too, so a
-  helper like `Preferences.migrate` still logs as `<Preferences.migrate>` without hardcoding a name.
-  The one place `type(self).__name__` is correct is a *runtime* value - `KumaCog.__init__` keys its
-  metrics by the subclass, which is the bug `__class__` caused there.
+- `__class__.__name__` is the usual form. It resolves inside a `@staticmethod` too, so a helper like
+  `Preferences.migrate` still logs as `<Preferences.migrate>` without hardcoding a name.
+- **`type(self).__name__` when the runtime class is the point.** This is case by case, not a ban.
+  `__class__` is bound to the class the method is *written* in, so in anything shared by subclasses it
+  only ever reports the base. Where disambiguating which class actually raised or failed is what makes
+  the line useful, `type(self)` is the right call - `KumaCog.get_request` names the cog that lost the
+  connection, and `KumaCog.__init__` keys its metrics by the subclass for the same reason. Say why in a
+  comment when you reach for it.
 
 ### Discord
 

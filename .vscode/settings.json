@@ -1,4 +1,5 @@
 {
+    "python.analysis.supportRestructuredText": true,
     "cSpell.ignorePaths": [
         "./docs/source/_static/*",
         "./docs/nodes/*",

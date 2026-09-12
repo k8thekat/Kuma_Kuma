@@ -124,9 +124,9 @@ async def _get_prefix(bot: Kuma_Kuma, message: discord.Message) -> list[str]:
 
     Parameters
     ----------
-    bot: :class:`Kuma_Kuma`
+    bot : :class:`Kuma_Kuma`
         The Bot class.
-    message: :class:`discord.Message`
+    message : :class:`discord.Message`
         The discord.Message invoking the command.
 
     Returns
@@ -148,7 +148,7 @@ async def _get_trusted(bot: Kuma_Kuma) -> set[int]:
 
     Parameters
     ----------
-    bot: :class:`Kuma_Kuma`
+    bot : :class:`Kuma_Kuma`
         The Bot class.
 
     Returns
@@ -263,11 +263,11 @@ class LogHandler:
 
         Parameters
         ----------
-        entries: :class:`int`
+        entries : :class:`int`
             How many matching records are wanted.
-        levels: :class:`Optional[frozenset[str]]`
+        levels : :class:`Optional[frozenset[str]]`
             Level names to keep, or None for all.
-        max_bytes: :class:`int`
+        max_bytes : :class:`int`
             Stop widening the window past this many bytes.
 
         Returns
@@ -318,20 +318,20 @@ class LogHandler:
 
         Parameters
         ----------
-        entries: :class:`int`, optional
+        entries : :class:`int`, optional
             How many of the most recent records to return, by default 15.
             Values below 1 are clamped to 1.
-        levels: :class:`Optional[Union[str, Iterable[str]]]`, optional
+        levels : :class:`Optional[Union[str, Iterable[str]]]`, optional
             Keep only these levels, by default None (keep everything). Accepts
             ``"ERROR"``, ``"ERROR,WARNING"``, ``"error warning"`` or a list.
-        colour: :class:`bool`, optional
+        colour : :class:`bool`, optional
             Re-apply :class:`KumaLogFormatter` colours, by default False. Only
             fence the result as :attr:`CodeFormat.ANSI` when this is True.
-        max_chars: :class:`int`, optional
+        max_chars : :class:`int`, optional
             A hard ceiling on the returned length, by default 1900 - Discord's
             2000 character limit less room for a fence. Whole records are
             dropped from the front to fit; a single oversized record is cut.
-        max_bytes: :class:`int`, optional
+        max_bytes : :class:`int`, optional
             How far back from EOF to search before giving up.
 
         Returns
@@ -585,7 +585,7 @@ def command_names(cog: commands.Cog) -> tuple[str, ...]:
 
     Parameters
     ----------
-    cog: :class:`commands.Cog`
+    cog : :class:`commands.Cog`
         The cog to read. Needs no `Kuma_Cog`, so a third party cog indexes the same way.
 
     Returns
@@ -715,13 +715,13 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
 
         Parameters
         ----------
-        cog: :class:`commands.Cog`
+        cog : :class:`commands.Cog`
             The cog being added.
-        override: :class:`bool`, optional
+        override : :class:`bool`, optional
             Passed through to :meth:`commands.Bot.add_cog`, by default False.
-        guild: :class:`Optional[discord.abc.Snowflake]`, optional
+        guild : :class:`Optional[discord.abc.Snowflake]`, optional
             Passed through to :meth:`commands.Bot.add_cog`, by default `MISSING`.
-        guilds: :class:`Sequence[discord.abc.Snowflake]`, optional
+        guilds : :class:`Sequence[discord.abc.Snowflake]`, optional
             Passed through to :meth:`commands.Bot.add_cog`, by default `MISSING`.
 
         """
@@ -744,11 +744,11 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
 
         Parameters
         ----------
-        name: :class:`str`
+        name : :class:`str`
             The qualified name of the cog to remove.
-        guild: :class:`Optional[discord.abc.Snowflake]`, optional
+        guild : :class:`Optional[discord.abc.Snowflake]`, optional
             Passed through to :meth:`commands.Bot.remove_cog`, by default `MISSING`.
-        guilds: :class:`Sequence[discord.abc.Snowflake]`, optional
+        guilds : :class:`Sequence[discord.abc.Snowflake]`, optional
             Passed through to :meth:`commands.Bot.remove_cog`, by default `MISSING`.
 
         Returns
@@ -801,7 +801,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
 
         Parameters
         ----------
-        snowflake: :class:`Union[discord.Message, discord.Thread]`
+        snowflake : :class:`Union[discord.Message, discord.Thread]`
             An object containing a :class:`Union[discord.Member, discord.User]` attribute, for
             comparison against a :class:`discord.ClientUser`.
 
@@ -830,7 +830,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
 
         Parameters
         ----------
-        guild_id: :class:`int`
+        guild_id : :class:`int`
             The Discord guild to look up.
 
         Returns
@@ -856,7 +856,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
 
         Parameters
         ----------
-        guild_id: :class:`int`
+        guild_id : :class:`int`
             The Discord guild whose prefixes changed.
 
         """
@@ -885,7 +885,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
 
         Parameters
         ----------
-        message: :class:`discord.Message`
+        message : :class:`discord.Message`
             The message being dispatched.
 
         Returns
@@ -1031,9 +1031,9 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
 
         Parameters
         ----------
-        reaction: :class:`discord.Reaction`
+        reaction : :class:`discord.Reaction`
             The reaction that was added.
-        user: :class:`Union[discord.Member, discord.User]`
+        user : :class:`Union[discord.Member, discord.User]`
             The member or user who added the reaction.
 
         """
