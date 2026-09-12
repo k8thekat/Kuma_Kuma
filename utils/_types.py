@@ -20,7 +20,7 @@ Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, NotRequired, Optional, TypedDict, Union
+from typing import TYPE_CHECKING, Any, NotRequired, Optional, TypedDict, Union, Unpack
 
 if TYPE_CHECKING:
     import datetime
@@ -30,17 +30,14 @@ if TYPE_CHECKING:
     from discord import Colour
     from discord.types.embed import EmbedType
 
-    #: A single emoji suitable for message content — a pre-formatted inline string (``<:name:id>``),
-    #: a full :class:`discord.Emoji`, or a :class:`discord.PartialEmoji`. All three stringify to a
-    #: form Discord renders as an emoji.
-    EmojiInput = Union[str, discord.Emoji, discord.PartialEmoji]
+    from .cog import KumaCog
+    from .embeds import KumaEmbed
+    from .ui import KumaContainer, KumaLayoutView, KumaView
 
-    #: One or more emoji for a followup message. A single :data:`EmojiInput` or a sequence of them;
-    #: sequences are joined with spaces so Discord still renders them large (up to 3 custom emoji per
-    #: message, or ~27 unicode emoji).
+    EmojiInput = Union[str, discord.Emoji, discord.PartialEmoji]
     EmojiFollowup = Union[EmojiInput, Sequence[EmojiInput]]
 
-__all__ = ("ButtonParams", "EmbedParams", "GitHubIssueSubmissionResponse", "SelectParams")
+__all__ = ("ButtonParams", "ContainerParams", "EmbedParams", "GitHubIssueSubmissionResponse", "LayoutViewParams", "SelectParams")
 
 
 class GitHubIssueSubmissionResponse(TypedDict):
@@ -133,3 +130,94 @@ class Metrics(TypedDict):
 
 class Uptime(TypedDict):
     start: datetime.datetime
+
+
+
+class ViewParams(TypedDict):
+    """:class:`KumaView` base parameters.
+
+    Params
+    ------
+    cog : :class:`KumaCog`
+        The Cog that dispatched the view.
+    owner : :class:`Union[discord.Member, discord.User]`
+        The Member or User who dispatched the view/interaction.
+    embeds : :class:`Optional[Sequence[KumaEmbed]]`
+        The Embeds associated with the view, if applicable.
+    recent_interaction : :class:`NotRequired[Optional[discord.Interaction]]`
+        The most recent :class:`discord.Interaction` that sent content.
+    components : :class:`NotRequired[list[discord.ui.Item]]`
+        Any Items to pre-append to the View and display during ``__init__``.
+    dispatched_by : :class:`Optional[Union[KumaView, discord.ui.Button[KumaView]]]`
+        The Object that dispatched the View.
+    timeout : :class:`NotRequired[Optional[float]]`
+        Default View timeout parameter.
+    """
+
+    cog: KumaCog
+    "The Cog that dispatched the view."
+    recent_interaction: NotRequired[Optional[discord.Interaction]]
+    "The most recent :class:`discord.Interaction` that sent content.."
+    components: NotRequired[list[discord.ui.Item]]
+    "Any Items to pre-append to the View and display during `__init__`"
+    owner: Union[discord.Member, discord.User]
+    "The Member or User who dispatched the view/interaction."
+    embeds: Optional[Sequence[KumaEmbed]]
+    "The Embeds associated with the view, if applicable."
+    dispatched_by: NotRequired[Optional[Union[KumaView, discord.ui.Button[KumaView]]]]
+    "Who dispatched the View..."
+    timeout: NotRequired[Optional[float]]
+    "Default View timeout parameter."
+
+
+class ViewParamsPartial(TypedDict):
+    """Similar to :class:`ViewParams`, but only ``cog`` and ``owner`` are required.
+
+    Params
+    ------
+    cog : :class:`KumaCog`
+        The Cog that dispatched the view.
+    owner : :class:`Union[discord.Member, discord.User]`
+        The Member or User who dispatched the view/interaction.
+    recent_interaction : :class:`NotRequired[Optional[discord.Interaction]]`
+        The most recent :class:`discord.Interaction` that sent content.
+    components : :class:`NotRequired[list[discord.ui.Item]]`
+        Any Items to pre-append to the View and display during ``__init__``.
+    embeds : :class:`NotRequired[Optional[Sequence[KumaEmbed]]]`
+        The Embeds associated with the view, if applicable.
+    dispatched_by : :class:`NotRequired[Optional[Union[KumaView, discord.ui.Button[KumaView]]]]`
+        The Object that dispatched the View.
+    timeout : :class:`NotRequired[Optional[float]]`
+        Default View timeout parameter.
+
+    """
+
+    cog: KumaCog
+    "The Cog that dispatched the view."
+    owner: Union[discord.Member, discord.User]
+    "The Member or User who dispatched the view/interaction."
+    recent_interaction: NotRequired[Optional[discord.Interaction]]
+    "The most recent :class:`discord.Interaction` that sent content.."
+    components: NotRequired[list[discord.ui.Item]]
+    "Any Items to pre-append to the View and display during `__init__`"
+    embeds: NotRequired[Optional[Sequence[KumaEmbed]]]
+    "The Embeds associated with the view, if applicable."
+    dispatched_by: NotRequired[Optional[Union[KumaView, discord.ui.Button[KumaView]]]]
+    "Who dispatched the View..."
+    timeout: NotRequired[Optional[float]]
+    "Default View timeout parameter."
+
+
+class LayoutViewParams(TypedDict):
+    cog: NotRequired[Optional[KumaCog]]
+    owner: Union[discord.Member, discord.User]
+    container: KumaContainer
+    containers: NotRequired[Optional[list[KumaContainer]]]
+    include_footer: NotRequired[Optional[bool]]
+
+
+class ContainerParams(TypedDict, total=False):
+    accent_color: Optional[Union[discord.Colour, int]]
+    accent_colour: Optional[Union[discord.Colour, int]]
+    spoiler: bool
+    id: Optional[int]

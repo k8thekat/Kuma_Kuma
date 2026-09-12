@@ -72,8 +72,8 @@ def _requirement(command: Any) -> str:
 
     Two sources, because the two kinds of command record it in completely different places.
     `default_permissions` is declared data and is read straight off application commands and the app
-    half of a hybrid. A prefix-only command has nothing declarative — `commands.has_permissions()`
-    builds a closure — so its predicate is unwrapped instead.
+    half of a hybrid. A prefix-only command has nothing declarative - `commands.has_permissions()`
+    builds a closure - so its predicate is unwrapped instead.
 
     .. warning::
         Reading a closure is reaching into discord.py's internals, and a rewrite of those decorators
@@ -120,12 +120,12 @@ def help_files(names: Iterable[str]) -> list[discord.File]:
     """Return fresh attachments for a help panel.
 
     A :class:`discord.File` wraps a handle that is consumed on send, so these are built per message
-    rather than shared. Only what the panel actually references is uploaded — a Components V2
+    rather than shared. Only what the panel actually references is uploaded - a Components V2
     message carries attachments but does not render them, so an unreferenced one is dead weight.
 
     Parameters
     ----------
-    names: :class:`Iterable[str]`
+    names : :class:`Iterable[str]`
         Attachment filenames, from :data:`_MEDIA_SOURCES`.
 
     Returns
@@ -162,9 +162,9 @@ def media_from(message: Optional[discord.Message], *, needed: Iterable[str]) -> 
 
     Parameters
     ----------
-    message: :class:`Optional[discord.Message]`
+    message : :class:`Optional[discord.Message]`
         The message being edited.
-    needed: :class:`Iterable[str]`
+    needed : :class:`Iterable[str]`
         Attachment names the replacement panel will reference.
 
     Returns
@@ -254,7 +254,7 @@ class KumaHelpPanel(discord.ui.LayoutView):
     cogs never re-runs command checks or touches the bot.
 
     .. warning::
-        A Components V2 message cannot carry `content` or `embeds`, but it *can* carry attachments —
+        A Components V2 message cannot carry `content` or `embeds`, but it *can* carry attachments -
         which is how the banner and thumbnail get here. How they are *referenced* differs between the
         first send and a later edit; see :class:`PanelMedia` and :meth:`rerender`.
 
@@ -289,7 +289,7 @@ class KumaHelpPanel(discord.ui.LayoutView):
 
         container.add_item(discord.ui.Separator())
         container.add_item(discord.ui.TextDisplay(f"-# {self._summary()}"))
-        # The banner closes the panel the way `/about` uses `set_image`, and only on the overview —
+        # The banner closes the panel the way `/about` uses `set_image`, and only on the overview -
         # a focused list is a working reference, and wants the room for commands instead.
         if focus is None:
             container.add_item(discord.ui.MediaGallery(discord.MediaGalleryItem(self.media.banner)))
@@ -355,8 +355,8 @@ class KumaHelpPanel(discord.ui.LayoutView):
     def _prefix_line(self) -> str:
         """How to address the bot, said once here rather than repeated on every command line."""
         listed: str = " ".join(f"`{prefix.strip()}`" for prefix in self.prefixes)
-        # A mention is always a prefix — `_get_prefix` wraps the guild's own in `when_mentioned_or`
-        # — and is the only way in when a guild has set none of its own.
+        # A mention is always a prefix - `_get_prefix` wraps the guild's own in `when_mentioned_or`
+        # - and is the only way in when a guild has set none of its own.
         return f"Prefix: {listed} · or just mention me" if listed else "Mention me to run a command."
 
     def _summary(self) -> str:
@@ -379,8 +379,8 @@ class KumaHelpPanel(discord.ui.LayoutView):
         """Replace the panel in place, keeping its images where it can.
 
         The images are already on the message, so the replacement points at their CDN URLs rather
-        than re-uploading. If anything it needs is missing — going back to the overview after the
-        banner was dropped — it uploads afresh instead, which makes the panel self-healing.
+        than re-uploading. If anything it needs is missing - going back to the overview after the
+        banner was dropped - it uploads afresh instead, which makes the panel self-healing.
 
         """
         needed: tuple[str, ...] = (THUMBNAIL_NAME,) if selected else (BANNER_NAME, THUMBNAIL_NAME)
@@ -481,7 +481,7 @@ class KumaHelpCommand(commands.HelpCommand):
             {
                 "help": "Shows what Kuma Kuma Bear can do.",
                 "aliases": ["commands", "h"],
-                # Keeps `help` out of its own listing — `filter_commands` drops hidden commands, and
+                # Keeps `help` out of its own listing - `filter_commands` drops hidden commands, and
                 # anyone reading this panel has evidently already found it. `help help` still works.
                 "hidden": True,
             },
@@ -500,7 +500,7 @@ class KumaHelpCommand(commands.HelpCommand):
         -------
         :class:`list[str]`
             Text prefixes, deduplicated, in the order `_get_prefix` gave them. Empty when the guild
-            has set none — in which case a mention is the only way in, and the panel says so.
+            has set none - in which case a mention is the only way in, and the panel says so.
 
         """
         with contextlib.suppress(Exception):
@@ -554,7 +554,7 @@ class KumaHelpCommand(commands.HelpCommand):
         """Flatten a cog's application commands, groups walked for their subcommands.
 
         `HelpCommand` only ever sees `cog.get_commands()`, which is prefix and hybrid commands. A cog
-        whose surface is pure `app_commands` — `ClaudeCog` is entirely one `app_commands.Group` —
+        whose surface is pure `app_commands` - `ClaudeCog` is entirely one `app_commands.Group` -
         is therefore invisible to it, cog and all. Hybrids are not double counted: they appear in
         `get_commands()` and are absent from `get_app_commands()`.
 
@@ -574,7 +574,7 @@ class KumaHelpCommand(commands.HelpCommand):
 
         Context menus are registered straight onto the tree in a cog's `__init__` rather than owned
         by it, so no cog claims them and `get_bot_mapping` never sees them. They also read nothing
-        like a command — there is no name to type — which is why they get a section instead of
+        like a command - there is no name to type - which is why they get a section instead of
         being scattered through the others.
 
         """

@@ -55,15 +55,15 @@ class KumaEmbed(Embed):
 
     Attributes
     ----------
-    cog: :class:`KumaCog`
+    cog : :class:`KumaCog`
         A :class:`discord.Cog` type class.
-    footer_icon: :class:`Optional[Union[discord.File, str]]`
+    footer_icon : :class:`Optional[Union[discord.File, str]]`
         Set the Footer Icon for a :class:`discord.Embed`.
-    thumbnail_icon: :class:`Optional[Union[discord.File, str]]`
+    thumbnail_icon : :class:`Optional[Union[discord.File, str]]`
         Set the Thumbnail Icon for a :class:`discord.Embed`.
-    avatar_icon: :class:`Optional[Union[discord.File, str]]`
+    avatar_icon : :class:`Optional[Union[discord.File, str]]`
         Set the Avatar Icon for a :class:`discord.Embed`.
-    field_image: :class:`Optional[Union[discord.File, str]]`
+    field_image : :class:`Optional[Union[discord.File, str]]`
         Set the Field Image for a :class:`discord.Embed`.
 
     """
@@ -229,15 +229,15 @@ class KumaEmbed(Embed):
         chaining. Can only be up to 25 fields.
 
         .. note::
-            The default used to be ``-1``, which is *one before the end* rather than the end —
+            The default used to be ``-1``, which is *one before the end* rather than the end -
             `insert_field_at(-1)` on a single field embed puts the spacer above it. Every bare
             caller wanted a spacer appended where they stood, so `None` (append) is the default.
 
         Parameters
         ----------
-        inline: :class:`bool`, optional
+        inline : :class:`bool`, optional
             Whether the field should be displayed inline, default is False
-        index: :class:`Optional[int]`, optional
+        index : :class:`Optional[int]`, optional
             To insert the field at a specific index, by default `None` which appends via
             `Self.add_field()`.
 
@@ -254,9 +254,9 @@ class KumaEmbed(Embed):
 
         Parameters
         ----------
-        index: :class:`Optional[int]`, optional
+        index : :class:`Optional[int]`, optional
             To insert the rule at a specific index, by default `None` which appends.
-        inline: :class:`bool`, optional
+        inline : :class:`bool`, optional
             Whether the fields should be displayed inline, by default False.
 
         Returns
@@ -266,7 +266,7 @@ class KumaEmbed(Embed):
 
         """
         if index is None:
-            # A zero width space, not the literal "test" this was left carrying — that rendered.
+            # A zero width space, not the literal "test" this was left carrying - that rendered.
             self.add_field(name="_________________________", value="\u200b", inline=inline)
             self.add_field(name=self.cog.unicode.double_vertical, value=self.cog.unicode.double_vertical, inline=inline)
             return self
@@ -291,12 +291,12 @@ class KumaEmbed(Embed):
 
         Parameters
         ----------
-        text: :class:`Optional[str]`, optional
+        text : :class:`Optional[str]`, optional
             The text parameter for `super().set_footer(text, ...)`, by default "text = Kuma Kuma Bear".
-        img: :class:`Optional[discord.File]`, optional
+        img : :class:`Optional[discord.File]`, optional
             A pre-built discord.File object that will be set as :property:`self.footer_icon` and the URL set to `attachment://footer-icon.png`,
             by default `None`.
-        icon_url: :class:`Optional[str]`, optional
+        icon_url : :class:`Optional[str]`, optional
             The icon url parameter for `super().set_footer(..., icon_url)`, by default `None` (no footer icon).
 
         Returns
@@ -319,15 +319,15 @@ class KumaEmbed(Embed):
         """Set the Field Image of the Embed.
 
         .. warning::
-            ``url`` defaults to `None` rather than to `attachment://field-image.png` — see the same note on
+            ``url`` defaults to `None` rather than to `attachment://field-image.png` - see the same note on
             :meth:`set_footer`. The attachment URL is only emitted when a file is actually riding along.
 
         Parameters
         ----------
-        img: :class:`Optional[discord.File]`, optional
+        img : :class:`Optional[discord.File]`, optional
             A pre-built discord.File object that will be set as :property:`self.field_image` and the URL set to `attachment://field-image.png`,
             by default `None`.
-        url: :class:`Optional[str]`, optional
+        url : :class:`Optional[str]`, optional
             The icon url parameter for `super().set_image(url)`, by default `None` (no image).
 
         Returns
@@ -360,13 +360,13 @@ class KumaEmbed(Embed):
 
         Parameters
         ----------
-        author: :class:`Optional[Union[discord.Member, discord.ClientUser]]`, optional
+        author : :class:`Optional[Union[discord.Member, discord.ClientUser]]`, optional
             The author of the embed, if applicable. Will use the object to populate ``name`` and either ``icon_url`` or ``icon``.
-        name: :class:`Optional[str]`, optional
+        name : :class:`Optional[str]`, optional
             The name of the author. Can only be up to 256 characters. Default is "Kuma Kuma Bear".
-        url: :class:`Optional[str]`, optional
+        url : :class:`Optional[str]`, optional
             The URL for the author, if ``author`` is ``None``.
-        icon_url: :class:`Optional[str]`, optional
+        icon_url : :class:`Optional[str]`, optional
             The icon url parameter for `super().set_author(icon_url)`, by default "icon_url = attachment://field-image.png".
 
         Returns
@@ -386,15 +386,15 @@ class KumaEmbed(Embed):
         """Set the Thumbnail Image of the Embedd.
 
         .. warning::
-            ``url`` defaults to `None` rather than to `attachment://thumbnail-icon.png` — see the same note on
+            ``url`` defaults to `None` rather than to `attachment://thumbnail-icon.png` - see the same note on
             :meth:`set_footer`. The attachment URL is only emitted when a file is actually riding along.
 
         Parameters
         ----------
-        img: :class:`Optional[discord.File]`, optional
+        img : :class:`Optional[discord.File]`, optional
             A pre-built discord.File object that will be set as :property:`self.thumbnail_icon` and the URL set to `attachment://thumbnail-icon.png`,
             by default `None`.
-        url: :class:`Optional[Union[str, discord.Asset]]`, optional
+        url : :class:`Optional[Union[str, discord.Asset]]`, optional
             The icon url parameter for `super().set_thumbnail(url)`, by default `None` (no thumbnail).
 
         Returns
@@ -403,7 +403,7 @@ class KumaEmbed(Embed):
             Returns a :class:`Self` for fluent code typing.
 
         """
-        # `img` wins over `url` — matches :meth:`set_image`, and attaching a file we then refuse to
+        # `img` wins over `url` - matches :meth:`set_image`, and attaching a file we then refuse to
         # reference would upload the thumbnail without ever displaying it.
         if img is not None:
             self.thumbnail_icon = img

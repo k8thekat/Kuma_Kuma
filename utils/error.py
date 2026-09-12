@@ -41,6 +41,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 import discord
 
 from .cog import KumaEmojiTable
+from .ui import KumaContainer, KumaLayoutView
 
 if TYPE_CHECKING:
     from asqlite import Pool
@@ -93,8 +94,13 @@ _TRACEBACK_DISPLAY_LIMIT: int = _VIEW_BUDGET - _REPORT_RESERVE
 _ERROR_COLOUR: discord.Color = discord.Color(0xA32952)
 
 
-class ErrorReport(discord.ui.LayoutView):
-    """The CV2 view DM'd to the owner when a command raises."""
+class ErrorReportContainer(KumaContainer):
+    """The container DM'd to the owner when a command raises.
+
+    Wrapped in a :class:`KumaLayoutView` by :func:`report_error`; the view carries no cog and no
+    interactive components, so :meth:`~KumaLayoutView.interaction_check` is never reached.
+
+    """
 
     def __init__(
         self,
@@ -112,31 +118,31 @@ class ErrorReport(discord.ui.LayoutView):
         first_seen: datetime.datetime,
         occurred_at: datetime.datetime,
     ) -> None:
-        super().__init__(timeout=None)
-
-        container: discord.ui.Container = discord.ui.Container(accent_colour=_ERROR_COLOUR)
+        super().__init__(accent_colour=_ERROR_COLOUR)
 
         # Header with kuma_sad thumbnail when available.
         header: str = "## ⚠ Command Error"
         kuma_url: Optional[str] = KumaEmojiTable.to_cdn_url("kuma_sad")
         if kuma_url:
-            container.add_item(discord.ui.Section(header, accessory=discord.ui.Thumbnail(media=kuma_url)))
+            self.add_item(discord.ui.Section(header, accessory=discord.ui.Thumbnail(media=kuma_url)))
         else:
-            container.add_item(discord.ui.TextDisplay(header))
-        container.add_item(discord.ui.Separator(spacing=discord.SeparatorSpacing.large))
+            self.add_item(discord.ui.TextDisplay(header))
+        self.add_separator(large=True)
 
-        # Context.
-        container.add_item(discord.ui.TextDisplay(f"**Command** · `{command_name}` · {command_type}"))
-        container.add_item(discord.ui.TextDisplay(f"**Author** · {user_name} (`{user_id}`)"))
+        # Context; escape user-controlled names so markdown characters (especially backticks)
+        # don't break the inline code around IDs.
+        _esc = discord.utils.escape_markdown
+        self.add_item(discord.ui.TextDisplay(f"**Command** · `{command_name}` · {command_type}"))
+        self.add_item(discord.ui.TextDisplay(f"**Author** · {_esc(user_name)} (`{user_id}`)"))
 
         if guild_name is not None and channel_name is not None:
-            location: str = f"**Location** · #{channel_name} (`{channel_id}`) · {guild_name} (`{guild_id}`)"
+            location: str = f"**Location** · #{_esc(channel_name)} (`{channel_id}`) · {_esc(guild_name)} (`{guild_id}`)"
         elif channel_name is not None:
-            location = f"**Location** · #{channel_name} (`{channel_id}`) · DMs"
+            location = f"**Location** · #{_esc(channel_name)} (`{channel_id}`) · DMs"
         else:
             location = "**Location** · Unknown"
-        container.add_item(discord.ui.TextDisplay(location))
-        container.add_item(discord.ui.Separator())
+        self.add_item(discord.ui.TextDisplay(location))
+        self.add_separator()
 
         # Traceback, truncated to budget.
         display: str = traceback_text[:_TRACEBACK_DISPLAY_LIMIT]
@@ -144,7 +150,7 @@ class ErrorReport(discord.ui.LayoutView):
         if len(traceback_text) > _TRACEBACK_DISPLAY_LIMIT:
             over: int = len(traceback_text) - _TRACEBACK_DISPLAY_LIMIT
             block += f"\n-# …{over:,} more characters; full traceback attached."
-        container.add_item(discord.ui.TextDisplay(block))
+        self.add_item(discord.ui.TextDisplay(block))
 
         # Footer timestamp and occurrence count.
         ts: str = f"<t:{int(occurred_at.timestamp())}:F>"
@@ -153,9 +159,7 @@ class ErrorReport(discord.ui.LayoutView):
             footer: str = f"-# {ts} · Seen {error_count}× since {first}"
         else:
             footer = f"-# {ts}"
-        container.add_item(discord.ui.TextDisplay(footer))
-
-        self.add_item(container)
+        self.add_item(discord.ui.TextDisplay(footer))
 
 
 # ---------------------------------------------------------------------------
@@ -193,9 +197,9 @@ async def setup_errors(pool: Pool, *, prune_days: int = 7) -> None:
 
     Parameters
     ----------
-    pool: :class:`Pool`
+    pool : :class:`Pool`
         The database connection pool.
-    prune_days: :class:`int`, optional
+    prune_days : :class:`int`, optional
         Occurrence rows older than this many days are deleted, by default ``7``.
 
     """
@@ -296,19 +300,19 @@ async def report_error(
 
     Parameters
     ----------
-    pool: :class:`Pool`
+    pool : :class:`Pool`
         The database connection pool.
-    owner: :class:`discord.User`
+    owner : :class:`discord.User`
         The bot owner to DM.
-    error: :class:`BaseException`
+    error : :class:`BaseException`
         The exception that was raised.
-    command: :class:`str`
+    command : :class:`str`
         The command name.
-    command_type: :class:`str`
+    command_type : :class:`str`
         ``"prefix"`` or ``"app"``.
-    user: :class:`Union[discord.User, discord.Member]`
+    user : :class:`Union[discord.User, discord.Member]`
         Who triggered the command.
-    guild: :class:`Optional[discord.Guild]`, optional
+    guild : :class:`Optional[discord.Guild]`, optional
         The guild, if any.
     channel: optional
         The channel.
@@ -342,7 +346,7 @@ async def report_error(
     except Exception:
         LOGGER.exception("<%s> | Could not record an error to the database:", "report_error")
 
-    report: ErrorReport = ErrorReport(
+    container: ErrorReportContainer = ErrorReportContainer(
         command_name=command,
         command_type=command_type,
         user_name=str(user),
@@ -356,8 +360,9 @@ async def report_error(
         first_seen=first_seen,
         occurred_at=now,
     )
+    view: KumaLayoutView = await KumaLayoutView(owner=owner, timeout=None).add_containers(container)
 
-    send_kwargs: dict[str, Any] = {"view": report, "silent": True}
+    send_kwargs: dict[str, Any] = {"view": view, "silent": True}
     if len(traceback_text) > _TRACEBACK_DISPLAY_LIMIT:
         send_kwargs["file"] = discord.File(fp=BytesIO(traceback_text.encode()), filename="traceback.py")
 

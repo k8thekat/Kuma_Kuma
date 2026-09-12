@@ -52,7 +52,7 @@ __all__ = (
 
 # The literal ESC byte. Discord only colours an ``ansi`` block when the real
 # 0x1B character is in the message payload. Writing the escape sequence as text
-# (a literal backslash, 'u', '001b') does not count — it arrives as prose and
+# (a literal backslash, 'u', '001b') does not count - it arrives as prose and
 # renders as visible garbage. Always build these with ansi().
 ESC = "\x1b"
 
@@ -68,7 +68,7 @@ class CodeFormat(StrEnum):
     Discord runs highlight.js over multi-line code blocks, so any language name
     or alias it ships is a valid fence token. Several of these are listed not
     because we are writing that language but because their grammar happens to
-    colour plain text in a useful way — see :data:`PALETTE_FORMATS`.
+    colour plain text in a useful way - see :data:`PALETTE_FORMATS`.
 
     .. note::
         The token must follow the backticks with **no space**: ```` ```ps ````
@@ -81,10 +81,10 @@ class CodeFormat(StrEnum):
 
     """
 
-    # — Discord extension, not a highlight.js language ---------------------
+    # Discord extension, not a highlight.js language.
     ANSI = "ansi"
 
-    # — Structural: colour follows the shape of the text -------------------
+    # Structural: colour follows the shape of the text.
     DIFF = "diff"
     FIX = "fix"
     INI = "ini"
@@ -95,7 +95,7 @@ class CodeFormat(StrEnum):
     MARKDOWN = "md"
     BASH = "bash"
 
-    # — Palette: picked for their colours, not their semantics -------------
+    # Palette: picked for their colours, not their semantics.
     EXCEL = "excel"
     GCODE = "nc"
     OCAML = "ml"
@@ -111,7 +111,7 @@ class CodeFormat(StrEnum):
 
 
 _FORMAT_NOTES: dict[CodeFormat, str] = {
-    CodeFormat.ANSI: "Not a highlight.js language — a Discord extension honouring real SGR escapes. The only arbitrary colour we get.",
+    CodeFormat.ANSI: "Not a highlight.js language - a Discord extension honouring real SGR escapes. The only arbitrary colour we get.",
     CodeFormat.DIFF: "Leading '+' green, '-' red, '@@ .. @@' teal. Free pass/fail colouring for status lines.",
     CodeFormat.FIX: "Colours the entire block gold. Banners and warnings.",
     CodeFormat.INI: "'[section]' headers, 'key = value' pairs, ';' comments grey. Config-panel look.",
@@ -119,13 +119,13 @@ _FORMAT_NOTES: dict[CodeFormat, str] = {
     CodeFormat.JSON: "Keys, strings and numbers each tinted. Only clean on genuinely valid JSON.",
     CodeFormat.HTTP: "Method, URL and header names each get their own tint. Request/response dumps.",
     CodeFormat.CSS: "Selectors one colour, properties another. Two-tone without needing valid CSS.",
-    CodeFormat.MARKDOWN: "'#' headings, '>' quotes and list bullets coloured — markdown shown, not rendered.",
+    CodeFormat.MARKDOWN: "'#' headings, '>' quotes and list bullets coloured - markdown shown, not rendered.",
     CodeFormat.BASH: "Quoted strings and '$VAR' pop against plain text. Command transcripts.",
     CodeFormat.EXCEL: "Excel formulas. Function-like words tint; good for a warm, uniform block.",
-    CodeFormat.GCODE: "Alias for G-Code. Bare words tint heavily — reads as a machine trace.",
+    CodeFormat.GCODE: "Alias for G-Code. Bare words tint heavily - reads as a machine trace.",
     CodeFormat.OCAML: "Alias for OCaml/SML. Capitalised words and quoted strings colour.",
     CodeFormat.NIM: "Quoted strings and numbers pop; a cooler palette than 'ps'.",
-    CodeFormat.POWERSHELL: "Alias for PowerShell. Our log default — '-flags' and quoted paths colour well.",
+    CodeFormat.POWERSHELL: "Alias for PowerShell. Our log default - '-flags' and quoted paths colour well.",
     CodeFormat.PROLOG: "'word(arg)' forms and quoted strings tint. Warm orange bias.",
     CodeFormat.RUBY: "Alias for Ruby. ':symbols' and quoted strings colour strongly.",
 }
@@ -191,13 +191,13 @@ def ansi(
 
     Parameters
     ----------
-    text: :class:`str`
+    text : :class:`str`
         The text to colour.
-    fore: :class:`Optional[AnsiFore]`, optional
+    fore : :class:`Optional[AnsiFore]`, optional
         Foreground colour, by default None.
-    back: :class:`Optional[AnsiBack]`, optional
+    back : :class:`Optional[AnsiBack]`, optional
         Background colour, by default None.
-    style: :class:`Optional[AnsiStyle]`, optional
+    style : :class:`Optional[AnsiStyle]`, optional
         Bold or underline, by default None.
 
     Returns
@@ -221,9 +221,9 @@ def code_block(content: str, fmt: Union[CodeFormat, str] = CodeFormat.POWERSHELL
 
     Parameters
     ----------
-    content: :class:`str`
+    content : :class:`str`
         The block body.
-    fmt: :class:`Union[CodeFormat, str]`, optional
+    fmt : :class:`Union[CodeFormat, str]`, optional
         The fence token, by default :attr:`CodeFormat.POWERSHELL`.
 
     Returns
@@ -241,7 +241,7 @@ def ansi_block(lines: Iterable[str]) -> str:
 
     Parameters
     ----------
-    lines: :class:`Iterable[str]`
+    lines : :class:`Iterable[str]`
         Lines, typically already passed through :func:`ansi`.
 
     Returns
@@ -257,12 +257,12 @@ def strip_ansi(text: str) -> str:
     """Remove SGR escapes from ``text``.
 
     Log lines that already carry colour from a terminal handler will show their
-    escapes verbatim in any block that is not ``ansi`` — run them through this
+    escapes verbatim in any block that is not ``ansi`` - run them through this
     before fencing them with a palette format.
 
     Parameters
     ----------
-    text: :class:`str`
+    text : :class:`str`
         Text that may contain SGR escapes.
 
     Returns
@@ -310,11 +310,11 @@ class KumaLogFormatter(logging.Formatter):
 
         Parameters
         ----------
-        fmt: :class:`str`, optional
+        fmt : :class:`str`, optional
             A ``%``-style format string, by default the Kuma Kuma log layout.
-        datefmt: :class:`str`, optional
+        datefmt : :class:`str`, optional
             Passed through to :meth:`logging.Formatter.formatTime`.
-        colour: :class:`Optional[bool]`, optional
+        colour : :class:`Optional[bool]`, optional
             Force colour on or off. ``None`` (the default) defers to
             :meth:`_colour_supported`, so piped and redirected output stays clean.
 
@@ -371,7 +371,7 @@ class KumaLogFormatter(logging.Formatter):
 
 
 # Matches the head of one Kuma Kuma log record, as laid out by KumaLogFormatter.
-# Anything that does not match is a continuation of the record above it — a
+# Anything that does not match is a continuation of the record above it - a
 # traceback body, or a message that contained a newline.
 _LOG_LINE: re.Pattern[str] = re.compile(
     r"^(?P<ts>\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2} [AP]M)"
@@ -386,12 +386,12 @@ def split_log_entries(text: str) -> list[str]:
     """Group raw log text into records, keeping multi-line entries intact.
 
     A traceback is part of the record that raised it. Slicing a log by *lines*
-    therefore decapitates exceptions — you get the tail of a traceback with no
+    therefore decapitates exceptions - you get the tail of a traceback with no
     indication of what threw it. Slicing by the entries this returns does not.
 
     Parameters
     ----------
-    text: :class:`str`
+    text : :class:`str`
         The contents of a log file.
 
     Returns
@@ -424,12 +424,12 @@ def colourise_log(text: str) -> str:
     Discord exactly as it looked on the console.
 
     Traceback bodies are tinted red, but only between a ``Traceback (most recent
-    call last):`` line and the next record — an ordinary multi-line message is
+    call last):`` line and the next record - an ordinary multi-line message is
     left alone rather than being wrongly painted as an error.
 
     Parameters
     ----------
-    text: :class:`str`
+    text : :class:`str`
         Plain log text.
 
     Returns
@@ -475,7 +475,7 @@ def entry_level(entry: str) -> Optional[str]:
 
     Parameters
     ----------
-    entry: :class:`str`
+    entry : :class:`str`
         One record, as produced by :func:`split_log_entries`.
 
     Returns
@@ -491,12 +491,12 @@ def entry_level(entry: str) -> Optional[str]:
 def parse_levels(levels: Optional[Union[str, Iterable[str]]]) -> Optional[frozenset[str]]:
     """Normalise a user-supplied level filter.
 
-    Accepts the shapes a Discord argument actually arrives in — ``"error"``,
-    ``"ERROR,WARNING"``, ``"error warning"`` — as well as an iterable.
+    Accepts the shapes a Discord argument actually arrives in - ``"error"``,
+    ``"ERROR,WARNING"``, ``"error warning"`` - as well as an iterable.
 
     Parameters
     ----------
-    levels: :class:`Optional[Union[str, Iterable[str]]]`
+    levels : :class:`Optional[Union[str, Iterable[str]]]`
         The filter. None or empty means "no filtering".
 
     Returns

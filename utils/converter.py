@@ -34,7 +34,7 @@ __all__ = ("CodeBlockConverter", "Snowflake")
 class CodeBlockConverter(commands.Converter):
     """Strips code block fencing from a command argument."""
 
-    async def convert(self, ctx: commands.Context, argument: str) -> str:  # noqa: ARG002 — ctx is part of the Converter protocol
+    async def convert(self, ctx: commands.Context, argument: str) -> str:  # noqa: ARG002 - ctx is part of the Converter protocol
         """Automatically removes code blocks from the code."""
         content: str = textwrap.dedent(argument).strip()
         if content.startswith("`" * 3) and content.endswith("`" * 3):

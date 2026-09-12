@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 __all__ = ("KumaContext", "KumaGuildContext")
 
-
+# TODO: Need to revist this and validate logic.
 def _normalize_emoji_followup(emoji: EmojiFollowup) -> str:
     """Collapse one or more emoji inputs into a single string for message content.
 
@@ -96,16 +96,16 @@ class KumaContext(commands.Context["Kuma_Kuma"]):
 
         Parameters
         ----------
-        content: :class:`Any`, optional
+        content : :class:`Any`, optional
             The message content.
-        track: :class:`bool`, optional
+        track : :class:`bool`, optional
             Whether to record the sent message in ``bot.msg_history``, by default False.
-        emoji_followup: :data:`EmojiFollowup`, optional
+        emoji_followup : :data:`EmojiFollowup`, optional
             One or more emoji to send as a standalone followup message so Discord renders them
             large. Accepts a plain inline string, a :class:`discord.Emoji`, a
             :class:`discord.PartialEmoji`, or a sequence of any of those (space-joined). The
             followup message is accessible via :attr:`emoji_followup_message` afterward.
-        **kwargs: :class:`Any`
+        **kwargs : :class:`Any`
             Passed through to :meth:`commands.Context.send`.
 
         Returns
@@ -136,16 +136,16 @@ class KumaContext(commands.Context["Kuma_Kuma"]):
 
         Parameters
         ----------
-        content: :class:`Any`, optional
+        content : :class:`Any`, optional
             The message content.
-        track: :class:`bool`, optional
+        track : :class:`bool`, optional
             Whether to record the sent message in ``bot.msg_history``, by default False.
-        emoji_followup: :data:`EmojiFollowup`, optional
+        emoji_followup : :data:`EmojiFollowup`, optional
             One or more emoji to send as a standalone followup message so Discord renders them
             large. Accepts a plain inline string, a :class:`discord.Emoji`, a
             :class:`discord.PartialEmoji`, or a sequence of any of those (space-joined). The
             followup message is accessible via :attr:`emoji_followup_message` afterward.
-        **kwargs: :class:`Any`
+        **kwargs : :class:`Any`
             Passed through to :meth:`commands.Context.reply`.
 
         Returns

@@ -60,9 +60,9 @@ class AnimationStyle:
 
     Attributes
     ----------
-    frames: :class:`tuple[str, ...]`
+    frames : :class:`tuple[str, ...]`
         The frames, cycled in order. A single frame renders as a static suffix.
-    template: :class:`str`
+    template : :class:`str`
         A format string accepting ``{label}`` and ``{frame}``.
 
     """
@@ -75,9 +75,9 @@ class AnimationStyle:
 
         Parameters
         ----------
-        label: :class:`str`
+        label : :class:`str`
             The leading text of the status line.
-        index: :class:`int`
+        index : :class:`int`
             The frame index to render.
 
         Returns
@@ -103,7 +103,7 @@ class AnimationFrames:
     "Four-frame rotating disc; heavier than braille, lighter than emoji."
 
     CLOCK: AnimationStyle = AnimationStyle(frames=("🕐", "🕒", "🕔", "🕖", "🕘", "🕚"))
-    "Unicode clock faces — obvious at a glance that time is passing."
+    "Unicode clock faces - obvious at a glance that time is passing."
 
     @staticmethod
     def toggle(*frames: str, template: str = "{label}… {frame}") -> AnimationStyle:
@@ -111,9 +111,9 @@ class AnimationFrames:
 
         Parameters
         ----------
-        *frames: :class:`str`
+        *frames : :class:`str`
             The frames to cycle, in order.
-        template: :class:`str`, optional
+        template : :class:`str`, optional
             The format string accepting ``{label}`` and ``{frame}``.
 
         Returns
@@ -136,7 +136,7 @@ class AnimationFrames:
 class KumaAnimation:
     """A self-updating status message driven by a background task.
 
-    Use as an async context manager — the task starts on entry and is always
+    Use as an async context manager - the task starts on entry and is always
     cancelled on exit, so a failure never strands a message mid-animation.
 
     .. code-block:: python
@@ -150,27 +150,27 @@ class KumaAnimation:
 
     Parameters
     ----------
-    target: :class:`AnimationTarget`
+    target : :class:`AnimationTarget`
         The message (or interaction) to edit.
-    label: :class:`str`, optional
+    label : :class:`str`, optional
         The leading text, by default ``"Working"``.
-    style: :class:`Optional[AnimationStyle]`, optional
+    style : :class:`Optional[AnimationStyle]`, optional
         The frame style, by default :attr:`AnimationFrames.BRAILLE`.
-    header: :class:`Optional[str]`, optional
+    header : :class:`Optional[str]`, optional
         A fixed line rendered above the status line, by default ``None``.
-    footer: :class:`Optional[str]`, optional
+    footer : :class:`Optional[str]`, optional
         A fixed line rendered below the body, by default ``None``.
-    status_last: :class:`bool`, optional
+    status_last : :class:`bool`, optional
         Whether the status line sits below the body rather than above it, by default ``False``.
-    min_interval: :class:`float`, optional
+    min_interval : :class:`float`, optional
         The floor between two edits, by default :attr:`DEFAULT_MIN_INTERVAL`.
-    idle_interval: :class:`float`, optional
+    idle_interval : :class:`float`, optional
         The cadence while nothing is changing, by default :attr:`DEFAULT_IDLE_INTERVAL`.
-    max_interval: :class:`float`, optional
+    max_interval : :class:`float`, optional
         The cadence a long-idle animation eases out to, by default :attr:`DEFAULT_MAX_INTERVAL`.
-    decay_after: :class:`float`, optional
+    decay_after : :class:`float`, optional
         Seconds without a change before the cadence starts easing, by default :attr:`DEFAULT_DECAY_AFTER`.
-    max_length: :class:`int`, optional
+    max_length : :class:`int`, optional
         The rendered content is truncated to this, by default ``1990``.
 
     """
@@ -264,7 +264,7 @@ class KumaAnimation:
         body: Optional[str] = "\n".join(self._body) if self._body else None
 
         parts: list[Optional[str]] = [self.header]
-        # Status pinned to the bottom reads like a CLI — finished work stacks upward.
+        # Status pinned to the bottom reads like a CLI - finished work stacks upward.
         parts.extend([body, status] if self.status_last else [status, body])
         parts.append(self.footer)
 
@@ -306,7 +306,7 @@ class KumaAnimation:
 
         Parameters
         ----------
-        final: :class:`Optional[str]`, optional
+        final : :class:`Optional[str]`, optional
             Content to write after stopping. ``None`` leaves the last frame in place.
 
         """
@@ -351,7 +351,7 @@ class KumaAnimation:
 
         .. note::
             Embeds are suppressed on every edit so URLs in the status line do not unfurl.
-            :meth:`discord.Interaction.edit_original_response` has no ``suppress`` arg —
+            :meth:`discord.Interaction.edit_original_response` has no ``suppress`` arg -
             send the interaction with ``suppress_embeds=True`` in the first place.
 
         """
@@ -389,9 +389,9 @@ class TranscriptBlock:
 
     Attributes
     ----------
-    lines: :class:`tuple[str, ...]`
+    lines : :class:`tuple[str, ...]`
         The block's lines, rendered.
-    final: :class:`bool`
+    final : :class:`bool`
         Whether the block has finished changing. Only final blocks are sealed onto a
         message that will never be edited again.
 
@@ -409,7 +409,7 @@ def _flatten(blocks: Sequence[TranscriptBlock]) -> list[str]:
 class KumaRollingAnimation:
     """A status line that stays at the bottom of a channel by rolling onto new messages.
 
-    :class:`KumaAnimation` animates a single fixed message. This owns a *succession* — the
+    :class:`KumaAnimation` animates a single fixed message. This owns a *succession* - the
     live one is the tail, and when content overflows the tail is sealed and a new one opens
     underneath. Finished work stacks upward; the spinner is always the bottom edge.
 
@@ -426,22 +426,22 @@ class KumaRollingAnimation:
 
     Parameters
     ----------
-    send: :class:`Callable[[str], Awaitable[discord.Message]]`
+    send : :class:`Callable[[str], Awaitable[discord.Message]]`
         Posts one message and returns it. Should suppress embeds.
-    label: :class:`str`, optional
+    label : :class:`str`, optional
         The leading text of the status line, by default ``"Working"``.
-    style: :class:`Optional[AnimationStyle]`, optional
+    style : :class:`Optional[AnimationStyle]`, optional
         The frame style, by default :attr:`AnimationFrames.BRAILLE`.
-    header: :class:`Optional[str]`, optional
+    header : :class:`Optional[str]`, optional
         A fixed line above the *first* tail only, by default ``None``.
-    continuation_header: :class:`Optional[str]`, optional
+    continuation_header : :class:`Optional[str]`, optional
         The header for tails after the first, by default ``None``.
-    max_length: :class:`int`, optional
+    max_length : :class:`int`, optional
         The length budget for one tail, by default ``1990``.
-    max_lines: :class:`int`, optional
+    max_lines : :class:`int`, optional
         The lines held on one tail, by default :attr:`DEFAULT_MAX_TAIL_LINES`.
-    **options: :class:`float`
-        Forwarded to every :class:`KumaAnimation` — the interval and decay settings.
+    **options : :class:`float`
+        Forwarded to every :class:`KumaAnimation` - the interval and decay settings.
 
     """
 
@@ -505,7 +505,7 @@ class KumaRollingAnimation:
     def prefix(self) -> Optional[str]:
         """A line drawn above the transcript on every live tail, or ``None``.
 
-        Not part of a block — it reappears at the top of each new tail for as long as it is
+        Not part of a block - it reappears at the top of each new tail for as long as it is
         set and disappears when cleared.
 
         """
@@ -523,11 +523,11 @@ class KumaRollingAnimation:
     async def render(self, blocks: Sequence[TranscriptBlock]) -> None:
         """Draws ``blocks`` as the transcript, rolling onto a fresh message when the tail is full.
 
-        Pass the *entire* transcript every time — blocks already sealed are skipped automatically.
+        Pass the *entire* transcript every time - blocks already sealed are skipped automatically.
 
         Parameters
         ----------
-        blocks: :class:`Sequence[TranscriptBlock]`
+        blocks : :class:`Sequence[TranscriptBlock]`
             The full transcript, oldest first.
 
         """
@@ -560,9 +560,9 @@ class KumaRollingAnimation:
 
         Parameters
         ----------
-        contents: :class:`Sequence[str]`
+        contents : :class:`Sequence[str]`
             Already-chunked message contents, posted in order.
-        reopen: :class:`bool`, optional
+        reopen : :class:`bool`, optional
             Whether to open a fresh tail immediately, by default ``True``.
 
         """
@@ -571,7 +571,7 @@ class KumaRollingAnimation:
         cut: int = self._sealable(live, limit=len(live))
         carried: list[TranscriptBlock] = live[cut:]
 
-        # A tail with nothing to seal is deleted — a dead spinner in the scrollback is a lie.
+        # A tail with nothing to seal is deleted - a dead spinner in the scrollback is a lie.
         await self._seal(final=self._compose(_flatten(live[:cut])) if cut else None, discard=not cut)
         self._offset += cut
         self._live = carried
@@ -594,10 +594,10 @@ class KumaRollingAnimation:
 
         Parameters
         ----------
-        footer: :class:`str`
+        footer : :class:`str`
             The closing line beneath the transcript.
-        blocks: :class:`Optional[Sequence[TranscriptBlock]]`, optional
-            The full transcript, by default ``None`` — uses whatever was last rendered.
+        blocks : :class:`Optional[Sequence[TranscriptBlock]]`, optional
+            The full transcript, by default ``None`` - uses whatever was last rendered.
 
         Returns
         -------
@@ -654,9 +654,9 @@ class KumaRollingAnimation:
 
         Parameters
         ----------
-        final: :class:`Optional[str]`, optional
+        final : :class:`Optional[str]`, optional
             Content to write in place of the last frame, by default ``None``.
-        discard: :class:`bool`, optional
+        discard : :class:`bool`, optional
             Whether to delete the message outright, by default ``False``.
 
         """
@@ -665,7 +665,7 @@ class KumaRollingAnimation:
         if panel is None:
             return
 
-        # Stop first — a running loop would redraw a frame over the frozen text.
+        # Stop first - a running loop would redraw a frame over the frozen text.
         await panel.stop(final=final)
         if discard is True and isinstance(panel.target, discord.Message):
             with contextlib.suppress(discord.HTTPException):
@@ -695,7 +695,7 @@ class KumaRollingAnimation:
 
     @staticmethod
     def _sealable(blocks: Sequence[TranscriptBlock], *, limit: int) -> int:
-        """Returns how many leading blocks may be frozen — the final ones, up to ``limit``."""
+        """Returns how many leading blocks may be frozen - the final ones, up to ``limit``."""
         count: int = 0
         for block in blocks[: max(limit, 0)]:
             if block.final is False:

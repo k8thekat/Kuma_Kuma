@@ -54,13 +54,13 @@ class SentMessageRecord:
 
     Attributes
     ----------
-    message_id: :class:`int`
+    message_id : :class:`int`
         The Discord message snowflake.
-    channel_id: :class:`int`
+    channel_id : :class:`int`
         The channel the message was sent in.
-    guild_id: :class:`Optional[int]`
+    guild_id : :class:`Optional[int]`
         The guild the message belongs to, or ``None`` for DMs.
-    created_at: :class:`datetime.datetime`
+    created_at : :class:`datetime.datetime`
         When the message was sent (UTC).
 
     """
@@ -100,9 +100,9 @@ class MessageHistory:
 
     Parameters
     ----------
-    pool: :class:`asqlite.Pool`
+    pool : :class:`asqlite.Pool`
         The shared database pool.
-    max_entries: :class:`int`, optional
+    max_entries : :class:`int`, optional
         Maximum rows to keep, by default :data:`DEFAULT_MAX_ENTRIES`.
 
     """
@@ -123,7 +123,7 @@ class MessageHistory:
 
         Parameters
         ----------
-        message: :class:`discord.Message`
+        message : :class:`discord.Message`
             The message object returned by a send call.
 
         Returns
@@ -180,7 +180,7 @@ class MessageHistory:
 
         Parameters
         ----------
-        coro: :class:`Coroutine[Any, Any, discord.Message]`
+        coro : :class:`Coroutine[Any, Any, discord.Message]`
             An unawaited send/reply coroutine.
 
         Yields
@@ -203,9 +203,9 @@ class MessageHistory:
 
         Parameters
         ----------
-        limit: :class:`int`, optional
+        limit : :class:`int`, optional
             How many records to return, by default 10.
-        guild_id: :class:`Optional[int]`, optional
+        guild_id : :class:`Optional[int]`, optional
             Narrow to a single guild. ``None`` returns all guilds.
 
         Returns
@@ -250,7 +250,7 @@ class MessageHistory:
 
         Parameters
         ----------
-        *message_ids: :class:`int`
+        *message_ids : :class:`int`
             One or more Discord message snowflakes to remove.
 
         Returns
@@ -287,7 +287,7 @@ async def setup_message_history(pool: Pool) -> None:
 
     Parameters
     ----------
-    pool: :class:`asqlite.Pool`
+    pool : :class:`asqlite.Pool`
         The shared database pool.
 
     """

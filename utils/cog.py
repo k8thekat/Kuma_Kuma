@@ -46,7 +46,7 @@ if TYPE_CHECKING:
 
     from ._types import EmojiFollowup, Metrics, Uptime
 
-__all__ = ("ROTATE_WINDOW", "FFXIVResources", "KumaCog", "KumaEmojiTable", "KumaResources")
+__all__ = ("ROTATE_WINDOW", "FFXIVResources", "KumaCog", "KumaEmojiTable", "KumaResources", "UnicodeTable")
 
 LOGGER = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ class PennPOS(StrEnum):
     RB = "RB"  # Adverb (quickly, never)
     RBR = "RBR"  # Adverb, comparative (faster, better)
     RBS = "RBS"  # Adverb, superlative (fastest, best)
-    RP = "RP"  # Particle (up, off, out — as in "give up")
+    RP = "RP"  # Particle (up, off, out - as in "give up")
     SYM = "SYM"  # Symbol (%, &, +, =)
     TO = "TO"  # "to" (as infinitive marker or preposition)
     UH = "UH"  # Interjection (uh, well, yes, oops)
@@ -103,52 +103,76 @@ class UnicodeTable:
     ```
     middle_dot: str = "\U000030fb"
     em_dash: str = "\U0000fe31"
-    double_vertical: str = "\U00002016"  # DOUBLE VERTICAL LINE - ‖ — ‖ — http://www.fileformat.info/info/unicode/char/2016
-    right_arrow: str = "\U000021e2"  # RIGHTWARDS DASHED ARROW - ⇢ — ⇢ — http://www.fileformat.info/info/unicode/char/21e2
-    colon: str = "\U00002236"  # RATIO - ∶ — ∶ — http://www.fileformat.info/info/unicode/char/2236  # noqa: RUF003
-    right_triangle_arrow: str = "\U000022b3"  # CONTAINS AS NORMAL SUBGROUP - ⊳ — ⊳ — http://www.fileformat.info/info/unicode/char/22b3
-    right_hook_arrow: str = "\U000021aa" # RIGHTWARDS ARROW WITH HOOK - ↪ — ↪ — http://www.fileformat.info/info/unicode/char/21aa
+    double_vertical: str = "\U00002016"  # DOUBLE VERTICAL LINE - ‖ - ‖ - http://www.fileformat.info/info/unicode/char/2016
+    right_arrow: str = "\U000021e2"  # RIGHTWARDS DASHED ARROW - ⇢ - ⇢ - http://www.fileformat.info/info/unicode/char/21e2
+    colon: str = "\U00002236"  # RATIO - ∶ - ∶ - http://www.fileformat.info/info/unicode/char/2236  # noqa: RUF003
+    right_triangle_arrow: str = "\U000022b3"  # CONTAINS AS NORMAL SUBGROUP - ⊳ - ⊳ - http://www.fileformat.info/info/unicode/char/22b3
+    right_hook_arrow: str = "\U000021aa" # RIGHTWARDS ARROW WITH HOOK - ↪ - ↪ - http://www.fileformat.info/info/unicode/char/21aa
     star: str = "\U00002b50" # ⭐
     blank: str = "\u200b"
     inbox_tray: str = "\U0001f4e5" # :inbox_tray:
-    loud_speaker: str = "\U0001f4e2" # : PUBLIC ADDRESS LOUDSPEAKER - 📢 — 📢 — http://www.fileformat.info/info/unicode/char/1f4e2
-    no_entry: str = "\U000026d4" #: NO ENTRY - ⛔ — ⛔ — http://www.fileformat.info/info/unicode/char/26d4
-    warning_sign: str = "\U000026a0" # : WARNING SIGN - ⚠ — ⚠ — http://www.fileformat.info/info/unicode/char/26a0
-    speed_bubble: str = "\U0001f5e8" #: LEFT SPEECH BUBBLE - 🗨 — 🗨 — http://www.fileformat.info/info/unicode/char/1f5e8
-    sun_behind_cloud: str = "\U000026c5"  # SUN BEHIND CLOUD - ⛅ — ⛅ — http://www.fileformat.info/info/unicode/char/26c5
-    lotus: str = "\U0001fab7"  # LOTUS - 🪷 — 🪷 — http://www.fileformat.info/info/unicode/char/1fab7
-    game_die: str = "\U0001f3b2"  # GAME DIE - 🎲 — 🎲 — http://www.fileformat.info/info/unicode/char/1f3b2
-    video_game: str = "\U0001f3ae"  # VIDEO GAME - 🎮 — 🎮 — http://www.fileformat.info/info/unicode/char/1f3ae
-    artist_palette: str = "\U0001f3a8"  # ARTIST PALETTE - 🎨 — 🎨 — http://www.fileformat.info/info/unicode/char/1f3a8
-    identification_card: str = "\U0001faaa"  # IDENTIFICATION CARD - 🪪 — 🪪 — http://www.fileformat.info/info/unicode/char/1faaa
-    bar_chart: str = "\U0001f4ca"  # BAR CHART - 📊 — 📊 — http://www.fileformat.info/info/unicode/char/1f4ca
-    no_one_under_eighteen: str = "\U0001f51e"  # NO ONE UNDER EIGHTEEN SYMBOL - 🔞 — 🔞 — http://www.fileformat.info/info/unicode/char/1f51e
+    loud_speaker: str = "\U0001f4e2" # : PUBLIC ADDRESS LOUDSPEAKER - 📢 - 📢 - http://www.fileformat.info/info/unicode/char/1f4e2
+    no_entry: str = "\U000026d4" #: NO ENTRY - ⛔ - ⛔ - http://www.fileformat.info/info/unicode/char/26d4
+    warning_sign: str = "\U000026a0" # : WARNING SIGN - ⚠ - ⚠ - http://www.fileformat.info/info/unicode/char/26a0
+    speed_bubble: str = "\U0001f5e8" #: LEFT SPEECH BUBBLE - 🗨 - 🗨 - http://www.fileformat.info/info/unicode/char/1f5e8
+    sun_behind_cloud: str = "\U000026c5"  # SUN BEHIND CLOUD - ⛅ - ⛅ - http://www.fileformat.info/info/unicode/char/26c5
+    lotus: str = "\U0001fab7"  # LOTUS - 🪷 - 🪷 - http://www.fileformat.info/info/unicode/char/1fab7
+    game_die: str = "\U0001f3b2"  # GAME DIE - 🎲 - 🎲 - http://www.fileformat.info/info/unicode/char/1f3b2
+    video_game: str = "\U0001f3ae"  # VIDEO GAME - 🎮 - 🎮 - http://www.fileformat.info/info/unicode/char/1f3ae
+    artist_palette: str = "\U0001f3a8"  # ARTIST PALETTE - 🎨 - 🎨 - http://www.fileformat.info/info/unicode/char/1f3a8
+    identification_card: str = "\U0001faaa"  # IDENTIFICATION CARD - 🪪 - 🪪 - http://www.fileformat.info/info/unicode/char/1faaa
+    bar_chart: str = "\U0001f4ca"  # BAR CHART - 📊 - 📊 - http://www.fileformat.info/info/unicode/char/1f4ca
+    no_one_under_eighteen: str = "\U0001f51e"  # NO ONE UNDER EIGHTEEN SYMBOL - 🔞 - 🔞 - http://www.fileformat.info/info/unicode/char/1f51e
+    check_mark: str = "\U00002713"  # CHECK MARK - ✓
+    ballot_x: str = "\U00002717"  # BALLOT X - ✗
+    black_circle: str = "\U000025cf"  # BLACK CIRCLE - ●
+    white_circle: str = "\U000025cb"  # WHITE CIRCLE - ○
+    black_diamond: str = "\U000025c6"  # BLACK DIAMOND - ◆
+    white_diamond: str = "\U000025c7"  # WHITE DIAMOND - ◇
+    black_small_square: str = "\U000025aa"  # BLACK SMALL SQUARE - ▪
+    white_small_square: str = "\U000025ab"  # WHITE SMALL SQUARE - ▫
+    black_rectangle: str = "\U000025b0"  # BLACK RECTANGLE - ▰
+    white_rectangle: str = "\U000025b1"  # WHITE RECTANGLE - ▱
     ```
 
     """
 
     middle_dot: str = "\U000030fb"
     em_dash: str = "\U0000fe31"
-    double_vertical: str = "\U00002016"  # DOUBLE VERTICAL LINE - ‖ — ‖ — http://www.fileformat.info/info/unicode/char/2016
-    right_arrow: str = "\U000021e2"  # RIGHTWARDS DASHED ARROW - ⇢ — ⇢ — http://www.fileformat.info/info/unicode/char/21e2
-    colon: str = "\U00002236"  # RATIO - ∶ — ∶ — http://www.fileformat.info/info/unicode/char/2236  # noqa: RUF003
-    right_triangle_arrow: str = "\U000022b3"  # CONTAINS AS NORMAL SUBGROUP - ⊳ — ⊳ — http://www.fileformat.info/info/unicode/char/22b3
-    right_hook_arrow: str = "\U000021aa"  # RIGHTWARDS ARROW WITH HOOK - ↪ — ↪ — http://www.fileformat.info/info/unicode/char/21aa
+    double_vertical: str = "\U00002016"  # DOUBLE VERTICAL LINE - ‖ - ‖ - http://www.fileformat.info/info/unicode/char/2016
+    right_arrow: str = "\U000021e2"  # RIGHTWARDS DASHED ARROW - ⇢ - ⇢ - http://www.fileformat.info/info/unicode/char/21e2
+    colon: str = "\U00002236"  # RATIO - ∶ - ∶ - http://www.fileformat.info/info/unicode/char/2236  # noqa: RUF003
+    right_triangle_arrow: str = "\U000022b3"  # CONTAINS AS NORMAL SUBGROUP - ⊳ - ⊳ - http://www.fileformat.info/info/unicode/char/22b3
+    right_hook_arrow: str = "\U000021aa"  # RIGHTWARDS ARROW WITH HOOK - ↪ - ↪ - http://www.fileformat.info/info/unicode/char/21aa
     star: str = "\U00002b50"  # ⭐
     blank: str = "\u200b"
     inbox_tray: str = "\U0001f4e5"  # :inbox_tray:
-    loud_speaker: str = "\U0001f4e2"  # : PUBLIC ADDRESS LOUDSPEAKER - 📢 — 📢 — http://www.fileformat.info/info/unicode/char/1f4e2
-    no_entry: str = "\U000026d4"  #: NO ENTRY - ⛔ — ⛔ — http://www.fileformat.info/info/unicode/char/26d4
-    warning_sign: str = "\U000026a0"  # : WARNING SIGN - ⚠ — ⚠ — http://www.fileformat.info/info/unicode/char/26a0
-    speed_bubble: str = "\U0001f5e8"  #: LEFT SPEECH BUBBLE - 🗨 — 🗨 — http://www.fileformat.info/info/unicode/char/1f5e8
-    sun_behind_cloud: str = "\U000026c5"  # SUN BEHIND CLOUD - ⛅ — ⛅ — http://www.fileformat.info/info/unicode/char/26c5
-    lotus: str = "\U0001fab7"  # LOTUS - 🪷 — 🪷 — http://www.fileformat.info/info/unicode/char/1fab7
-    game_die: str = "\U0001f3b2"  # GAME DIE - 🎲 — 🎲 — http://www.fileformat.info/info/unicode/char/1f3b2
-    video_game: str = "\U0001f3ae"  # VIDEO GAME - 🎮 — 🎮 — http://www.fileformat.info/info/unicode/char/1f3ae
-    artist_palette: str = "\U0001f3a8"  # ARTIST PALETTE - 🎨 — 🎨 — http://www.fileformat.info/info/unicode/char/1f3a8
-    identification_card: str = "\U0001faaa"  # IDENTIFICATION CARD - 🪪 — 🪪 — http://www.fileformat.info/info/unicode/char/1faaa
-    bar_chart: str = "\U0001f4ca"  # BAR CHART - 📊 — 📊 — http://www.fileformat.info/info/unicode/char/1f4ca
-    no_one_under_eighteen: str = "\U0001f51e"  # NO ONE UNDER EIGHTEEN SYMBOL - 🔞 — 🔞 — http://www.fileformat.info/info/unicode/char/1f51e
+    loud_speaker: str = "\U0001f4e2"  # : PUBLIC ADDRESS LOUDSPEAKER - 📢 - 📢 - http://www.fileformat.info/info/unicode/char/1f4e2
+    no_entry: str = "\U000026d4"  #: NO ENTRY - ⛔ - ⛔ - http://www.fileformat.info/info/unicode/char/26d4
+    warning_sign: str = "\U000026a0"  # : WARNING SIGN - ⚠ - ⚠ - http://www.fileformat.info/info/unicode/char/26a0
+    speed_bubble: str = "\U0001f5e8"  #: LEFT SPEECH BUBBLE - 🗨 - 🗨 - http://www.fileformat.info/info/unicode/char/1f5e8
+    sun_behind_cloud: str = "\U000026c5"  # SUN BEHIND CLOUD - ⛅ - ⛅ - http://www.fileformat.info/info/unicode/char/26c5
+    lotus: str = "\U0001fab7"  # LOTUS - 🪷 - 🪷 - http://www.fileformat.info/info/unicode/char/1fab7
+    game_die: str = "\U0001f3b2"  # GAME DIE - 🎲 - 🎲 - http://www.fileformat.info/info/unicode/char/1f3b2
+    video_game: str = "\U0001f3ae"  # VIDEO GAME - 🎮 - 🎮 - http://www.fileformat.info/info/unicode/char/1f3ae
+    artist_palette: str = "\U0001f3a8"  # ARTIST PALETTE - 🎨 - 🎨 - http://www.fileformat.info/info/unicode/char/1f3a8
+    identification_card: str = "\U0001faaa"  # IDENTIFICATION CARD - 🪪 - 🪪 - http://www.fileformat.info/info/unicode/char/1faaa
+    bar_chart: str = "\U0001f4ca"  # BAR CHART - 📊 - 📊 - http://www.fileformat.info/info/unicode/char/1f4ca
+    no_one_under_eighteen: str = "\U0001f51e"  # NO ONE UNDER EIGHTEEN SYMBOL - 🔞 - 🔞 - http://www.fileformat.info/info/unicode/char/1f51e
+
+    # Status indicators.
+    check_mark: str = "\U00002713"  # CHECK MARK - ✓ - ✓ - http://www.fileformat.info/info/unicode/char/2713
+    ballot_x: str = "\U00002717"  # BALLOT X - ✗ - ✗ - http://www.fileformat.info/info/unicode/char/2717
+
+    # Geometric shapes.
+    black_circle: str = "\U000025cf"  # BLACK CIRCLE - ● - ● - http://www.fileformat.info/info/unicode/char/25cf
+    white_circle: str = "\U000025cb"  # WHITE CIRCLE - ○ - ○ - http://www.fileformat.info/info/unicode/char/25cb
+    black_diamond: str = "\U000025c6"  # BLACK DIAMOND - ◆ - ◆ - http://www.fileformat.info/info/unicode/char/25c6
+    white_diamond: str = "\U000025c7"  # WHITE DIAMOND - ◇ - ◇ - http://www.fileformat.info/info/unicode/char/25c7
+    black_small_square: str = "\U000025aa"  # BLACK SMALL SQUARE - ▪ - ▪ - http://www.fileformat.info/info/unicode/char/25aa
+    white_small_square: str = "\U000025ab"  # WHITE SMALL SQUARE - ▫ - ▫ - http://www.fileformat.info/info/unicode/char/25ab
+    black_rectangle: str = "\U000025b0"  # BLACK RECTANGLE - ▰ - a filled progress-bar cell
+    white_rectangle: str = "\U000025b1"  # WHITE RECTANGLE - ▱ - an empty progress-bar cell
 
 
 class KumaEmojiTable:
@@ -175,7 +199,7 @@ class KumaEmojiTable:
     kuma_head_clench = "<:kuma_head_clench:1337133349612814398>"
 
     # Retired: every entry is a plain class attribute, so `table.kuma_happy` says the same thing at
-    # no cost and without a lookup that could raise. The `int` branch never worked anyway — it
+    # no cost and without a lookup that could raise. The `int` branch never worked anyway - it
     # compared the ID against the whole `<:name:id>` string, so an ID lookup always raised.
     # Use the attribute directly, or `get_emoji()` when the name is only known at runtime.
     # @staticmethod
@@ -215,7 +239,7 @@ class KumaEmojiTable:
 
         Parameters
         ----------
-        name: :class:`str`
+        name : :class:`str`
             The name of the emoji to lookup.
 
         Returns
@@ -242,9 +266,9 @@ class KumaEmojiTable:
 
         Parameters
         ----------
-        name: :class:`str`
+        name : :class:`str`
             The name of the emoji to lookup, eg. `kuma_peak`.
-        size: :class:`int`, optional
+        size : :class:`int`, optional
             The requested image width in pixels, by default `128`. Discord serves powers of two from
             16 to 4096 and rounds anything else up.
 
@@ -279,21 +303,21 @@ class KumaCog(commands.Cog):
     ----------
     bot: Kuma_Kuma
         The discord bot class.
-    message_timeout: :class:`int`
+    message_timeout : :class:`int`
         The amount of time in seconds before a message is auto-deleted.
-    owner_guild: :class:`discord.Object`
+    owner_guild : :class:`discord.Object`
         The owner of the bots guild. aka Neko Neko Cafe`
-    emoji_table: :class:`KumaEmojiTable`
+    emoji_table : :class:`KumaEmojiTable`
         A simple str name attribute to int id value representation for ease of use.
-    resources: :class:`KumaResources`
+    resources : :class:`KumaResources`
         A base class with pathlib Path attributes for accessing resources.
 
 
     Properties
     ----------
-    unicode: :class:`UnicodeTable`
+    unicode : :class:`UnicodeTable`
         ...
-    metrics: :class:`Metrics`
+    metrics : :class:`Metrics`
         A dictionary containing useful information regarding metrics, can be expanded.
 
     """
@@ -340,7 +364,7 @@ class KumaCog(commands.Cog):
         """
         self.bot = bot
         self.message_timeout = bot.message_timeout
-        # `type(self)`, not `__class__` — the latter is bound to the class the method is *written*
+        # `type(self)`, not `__class__` - the latter is bound to the class the method is *written*
         # in, so every cog keyed its metrics under "KumaCog" and the last one loaded won. A cog
         # reading `self.metrics[<its own name>]` only worked if it overwrote the dict itself.
         self.metrics = {type(self).__name__: {"uptime": {"start": datetime.datetime.now(tz=datetime.UTC)}}}
@@ -361,11 +385,11 @@ class KumaCog(commands.Cog):
 
         Parameters
         ----------
-        name: :class:`str`
+        name : :class:`str`
             Display name for the emoji.
-        emoji_id: :class:`int`
+        emoji_id : :class:`int`
             The emoji's snowflake ID.
-        animated: :class:`bool`, optional
+        animated : :class:`bool`, optional
             Initial guess, by default ``True``. When ``False`` no probe runs and
             the returned bytes are ``None``.
 
@@ -373,7 +397,7 @@ class KumaCog(commands.Cog):
         -------
         tuple[:class:`discord.PartialEmoji`, :class:`Optional[bytes]`]
             The wired emoji and, when a probe succeeded, the raw image bytes.
-            ``None`` bytes when no probe ran — the caller should ``emoji.read()``
+            ``None`` bytes when no probe ran - the caller should ``emoji.read()``
             as usual.
 
         """
@@ -436,9 +460,9 @@ class KumaCog(commands.Cog):
 
         Parameters
         ----------
-        settings: :class:`type`
+        settings : :class:`type`
             The TypedDict describing one row. eg. `ModeratorSettings`.
-        exclude: :class:`Iterable[str]`, optional
+        exclude : :class:`Iterable[str]`, optional
             Keys to leave out on top of :attr:`settings_excluded_keys`, for a column that is not a
             user facing setting, by default ``()``.
 
@@ -458,7 +482,7 @@ class KumaCog(commands.Cog):
         """Choose one of several entries, rotating which one on a fixed cadence.
 
         The wall clock is the seed, so there is nothing to store and the same caller asking twice
-        inside one window is handed the same entry — a choice that is reproducible rather than merely
+        inside one window is handed the same entry - a choice that is reproducible rather than merely
         random.
 
         .. note::
@@ -467,12 +491,12 @@ class KumaCog(commands.Cog):
 
         Parameters
         ----------
-        entries: :class:`Sequence[T]`
+        entries : :class:`Sequence[T]`
             What to choose from.
-        offset: :class:`int`, optional
+        offset : :class:`int`, optional
             Shifts this caller's place in the rotation, by default 0. Pass a user ID so two people
             asking in the same window are not handed the same entry.
-        window: :class:`int`, optional
+        window : :class:`int`, optional
             Seconds a choice holds before moving on, by default :attr:`ROTATE_WINDOW`.
 
         Returns
@@ -505,9 +529,9 @@ class KumaCog(commands.Cog):
 
         Parameters
         ----------
-        time: :class:`datetime`
+        time : :class:`datetime`
             The datetime object to timestamp.
-        style: :class:`_timestamp_styles`, optional
+        style : :class:`_timestamp_styles`, optional
             The Format to display the text in, by default "F".
 
         Returns
@@ -527,9 +551,9 @@ class KumaCog(commands.Cog):
 
         Parameters
         ----------
-        word: :class:`str`
+        word : :class:`str`
             The str to inflect upon.
-        tag: :class:`PennPOS`, optional
+        tag : :class:`PennPOS`, optional
             The Penn TreeBank Tag, by default "PennPOS.VBD".
             - https://www.ling.upenn.edu/courses/Fall_2003/ling001/penn_treebank_pos.html
 
@@ -547,16 +571,16 @@ class KumaCog(commands.Cog):
     def to_progressive(self, label: str, tag: PennPOS = PennPOS.VBG) -> str:
         """Returns a label with only its first word inflected, so a bare verb reads as an action.
 
-        Wraps :meth:`string_inflection` for the common status-line case — `"Read"` becomes
+        Wraps :meth:`string_inflection` for the common status-line case - `"Read"` becomes
         `"Reading"`, `"Run tests"` becomes `"Running tests"`. The trailing words are left alone
         because they are the object of the verb, not part of it, and the caller's leading capital is
         restored afterwards since lemminflect always returns lowercase.
 
         Parameters
         ----------
-        label: :class:`str`
+        label : :class:`str`
             The label to inflect, e.g. a tool or action name.
-        tag: :class:`PennPOS`, optional
+        tag : :class:`PennPOS`, optional
             The Penn TreeBank tag to inflect to, by default :attr:`PennPOS.VBG` (present participle).
 
         Returns
@@ -584,7 +608,7 @@ class KumaCog(commands.Cog):
     ) -> KumaAnimation:
         """Builds a self-updating status message for a long running action.
 
-        Use it as an async context manager — the background task is cancelled on exit even when the
+        Use it as an async context manager - the background task is cancelled on exit even when the
         body raises, so a failure cannot strand a message animating forever.
 
         .. code-block:: python
@@ -598,16 +622,16 @@ class KumaCog(commands.Cog):
 
         Parameters
         ----------
-        target: :class:`AnimationTarget`
+        target : :class:`AnimationTarget`
             The message, webhook message or interaction to edit.
-        label: :class:`str`, optional
+        label : :class:`str`, optional
             The leading text, by default `"Working"`.
-        style: :class:`Optional[AnimationStyle]`, optional
-            A frame style — see :class:`AnimationFrames` for presets and
+        style : :class:`Optional[AnimationStyle]`, optional
+            A frame style - see :class:`AnimationFrames` for presets and
             :meth:`AnimationFrames.toggle` to cycle your own strings or emoji. Defaults to
             :attr:`AnimationFrames.BRAILLE`.
-        **kwargs: :class:`Any`
-            Forwarded to :class:`KumaAnimation` — `header`, `footer`, `status_last`,
+        **kwargs : :class:`Any`
+            Forwarded to :class:`KumaAnimation` - `header`, `footer`, `status_last`,
             `min_interval`, `idle_interval`, `max_interval`, `decay_after`, `max_length`.
 
         Returns
@@ -623,9 +647,9 @@ class KumaCog(commands.Cog):
 
         Parameters
         ----------
-        url: :class:`str`
+        url : :class:`str`
             The URL to request.
-        **request_params: :class:`Unpack[AioHTTPRequestOptions]`
+        **request_params : :class:`Unpack[AioHTTPRequestOptions]`
             Additional keyword arguments forwarded to :meth:`aiohttp.ClientSession.get`.
 
         Returns
@@ -639,6 +663,8 @@ class KumaCog(commands.Cog):
                 if session.status >= 200 and session.status < 300:
                     return await session.read()
         except (TimeoutError, aiohttp.ClientError) as e:
+            # `type(self)` here on purpose; every cog shares this helper, so the runtime subclass names
+            # which one lost the connection where `__class__` would only ever say "KumaCog".
             LOGGER.warning(
                 "<%s.%s> | Connection failed. | URL: %s | Error: %s",
                 type(self).__name__,
@@ -648,6 +674,7 @@ class KumaCog(commands.Cog):
             )
         return None
 
+    # TODO: Need to revist this and validate logic.
     async def emoji_followup(
         self,
         destination: Union[discord.abc.Messageable, discord.Interaction],
@@ -655,7 +682,7 @@ class KumaCog(commands.Cog):
     ) -> discord.Message:
         """Send emoji as a standalone message so Discord renders them large.
 
-        Use this outside of :class:`KumaContext` — event handlers, tasks, listeners — anywhere a
+        Use this outside of :class:`KumaContext` - event handlers, tasks, listeners - anywhere a
         cog has a :class:`~discord.abc.Messageable` or a :class:`discord.Interaction` but not a
         command context. Inside a command, prefer the ``emoji_followup`` parameter on
         :meth:`KumaContext.send` / :meth:`KumaContext.reply` instead.
@@ -677,10 +704,10 @@ class KumaCog(commands.Cog):
 
         Parameters
         ----------
-        destination: :class:`Union[discord.abc.Messageable, discord.Interaction]`
-            Where to send the emoji — a channel, thread, user DM, or an interaction whose channel
+        destination : :class:`Union[discord.abc.Messageable, discord.Interaction]`
+            Where to send the emoji - a channel, thread, user DM, or an interaction whose channel
             will be resolved automatically.
-        emoji: :data:`EmojiFollowup`
+        emoji : :data:`EmojiFollowup`
             One or more emoji to send. Accepts a plain inline string, a :class:`discord.Emoji`,
             a :class:`discord.PartialEmoji`, or a sequence of any of those (space-joined).
 
@@ -700,7 +727,7 @@ class KumaCog(commands.Cog):
         if isinstance(destination, discord.Interaction):
             raw_channel = destination.channel
             if raw_channel is None or not isinstance(raw_channel, discord.abc.Messageable):
-                msg: str = "Cannot send an emoji followup — the interaction has no sendable channel."
+                msg: str = "Cannot send an emoji followup - the interaction has no sendable channel."
                 raise RuntimeError(msg)
             return await raw_channel.send(content)
         return await destination.send(content)
@@ -876,7 +903,7 @@ class MooglesIntuitionEmojis:
 
         Parameters
         ----------
-        name: :class:`str`
+        name : :class:`str`
             The name of the emoji to lookup.
 
         Returns
@@ -898,9 +925,9 @@ class FFXIVResources:
 
     Attributes
     ----------
-    resource_path: :class:`Path`
+    resource_path : :class:`Path`
         Parent Path directory to `resources/moogle_intuition` directory.
-    emojis: :class:`MooglesIntuitionEmojis`
+    emojis : :class:`MooglesIntuitionEmojis`
         A class with mapped attributes related to inline discord Application Emojis.
 
     """
@@ -930,9 +957,9 @@ class FFXIVResources:
 
         Parameters
         ----------
-        patch_id: :class:`float`
+        patch_id : :class:`float`
             The ICON ID in reference to `patch_mapping`.
-        filename: :class:`str`, optional
+        filename : :class:`str`, optional
             The filename parameter for the `discord.File` object, by default `"patch-icon.png"`.
 
         Returns
@@ -964,7 +991,7 @@ class FFXIVResources:
 
         Parameters
         ----------
-        filename: :class:`str`, optional
+        filename : :class:`str`, optional
             The filename parameter for the `discord.File` object, by default `"universalis-icon.png"`.
 
         Returns
@@ -1009,7 +1036,7 @@ class FFXIVResources:
 
         Parameters
         ----------
-        filename: :class:`str`, optional
+        filename : :class:`str`, optional
             The filename parameter for the `discord.File` object, by default `"moogle-icon.png"`.
 
         Returns
@@ -1024,3 +1051,6 @@ class FFXIVResources:
     # def make_file(cls, path: Path) -> discord.File:
     #     if path.exists():
     #         return discord.File()
+
+
+# endregion

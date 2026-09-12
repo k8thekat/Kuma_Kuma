@@ -79,9 +79,9 @@ class PanelAccess(Enum):
 
         Parameters
         ----------
-        user: :class:`Union[discord.Member, discord.User]`
+        user : :class:`Union[discord.Member, discord.User]`
             The command invoker; the owner for :attr:`only_me`.
-        bot: :class:`Kuma_Kuma`
+        bot : :class:`Kuma_Kuma`
             The bot, whose user becomes the owner for :attr:`public`.
 
         Returns
@@ -114,9 +114,9 @@ class KumaLayoutView(discord.ui.LayoutView):
 
     Attributes
     ----------
-    cog: :class:`Optional[KumaCog]`
+    cog : :class:`Optional[KumaCog]`
         The parent cog.
-    owner: :class:`Optional[Union[discord.Member, discord.User, discord.ClientUser]]`
+    owner : :class:`Optional[Union[discord.Member, discord.User, discord.ClientUser]]`
         The Discord user or member the panel belongs to.
 
     """
@@ -170,12 +170,12 @@ class KumaLayoutView(discord.ui.LayoutView):
 
         Parameters
         ----------
-        cog: :class:`Optional[KumaCog]`, optional
+        cog : :class:`Optional[KumaCog]`, optional
             The parent cog; `None` for non-interactive views (e.g. DM reports) where
             :meth:`interaction_check` is never reached, by default `None`.
-        owner: :class:`Optional[Union[discord.Member, discord.User, discord.ClientUser]]`
+        owner : :class:`Optional[Union[discord.Member, discord.User, discord.ClientUser]]`
             The person allowed to interact with the panel; `None` for preview style views no one can interact with.
-        timeout: :class:`Optional[float]`, optional
+        timeout : :class:`Optional[float]`, optional
             Seconds before the view stops accepting input, by default ``180.0``.
 
         """
@@ -227,9 +227,9 @@ class KumaLayoutView(discord.ui.LayoutView):
 
         Parameters
         ----------
-        interaction: :class:`discord.Interaction`
+        interaction : :class:`discord.Interaction`
             The interaction from the pressed :class:`NavButton`.
-        step: :class:`int`
+        step : :class:`int`
             The offset applied to :attr:`indx`; ``-1`` for the previous page, ``1`` for the next.
 
         """
@@ -268,7 +268,7 @@ class KumaLayoutView(discord.ui.LayoutView):
 
         Parameters
         ----------
-        container: :class:`KumaContainer`
+        container : :class:`KumaContainer`
             The container to attach and prepare.
 
         """
@@ -280,9 +280,9 @@ class KumaLayoutView(discord.ui.LayoutView):
 
         Parameters
         ----------
-        containers: :class:`Union[KumaContainer, Sequence[KumaContainer]]`
+        containers : :class:`Union[KumaContainer, Sequence[KumaContainer]]`
             A single container or the ordered pages to page through.
-        position: :class:`int`, optional
+        position : :class:`int`, optional
             The page to open on, clamped to the page count, by default ``0``.
 
         Returns
@@ -365,12 +365,12 @@ class KumaContainer(discord.ui.Container[KumaLayoutView]):
 
         Parameters
         ----------
-        *children: :class:`discord.ui.Item`
+        *children : :class:`discord.ui.Item`
             Initial child items, forwarded to :class:`discord.ui.Container`.
-        include_footer: :class:`bool`, optional
+        include_footer : :class:`bool`, optional
             Add a footer during :meth:`_kuma_prepare` - a page counter while the view paginates, a
             plain credit line otherwise, by default ``False``.
-        **kwargs: :class:`Unpack[ContainerParams]`
+        **kwargs : :class:`Unpack[ContainerParams]`
             Remaining :class:`discord.ui.Container` keyword arguments (``accent_colour``, ``spoiler``, ``id``).
 
         """
@@ -417,7 +417,7 @@ class KumaContainer(discord.ui.Container[KumaLayoutView]):
 
         Parameters
         ----------
-        include_sep: :class:`bool`, optional
+        include_sep : :class:`bool`, optional
             Add a :class:`discord.ui.Separator` before the footer text, by default `False`.
 
         Returns
@@ -435,10 +435,10 @@ class KumaContainer(discord.ui.Container[KumaLayoutView]):
 
         Parameters
         ----------
-        large: :class:`bool`, optional
+        large : :class:`bool`, optional
             Use :attr:`discord.SeparatorSpacing.large` instead of the default small spacing,
             by default `False`.
-        visible: :class:`bool`, optional
+        visible : :class:`bool`, optional
             Show or hide the separator, by default `True`.
 
         Returns
@@ -473,9 +473,9 @@ class NavButton(discord.ui.Button[KumaLayoutView]):
 
         Parameters
         ----------
-        step: :class:`int`
+        step : :class:`int`
             The offset applied to the view's :attr:`~KumaLayoutView.indx` on press; ``-1`` or ``1``.
-        **kwargs: :class:`Unpack[ButtonParams]`
+        **kwargs : :class:`Unpack[ButtonParams]`
             :class:`discord.ui.Button` keyword arguments; ``style`` defaults to :attr:`discord.ButtonStyle.blurple`.
 
         """
@@ -501,21 +501,21 @@ class KumaView(discord.ui.View):
 
     Attributes
     ----------
-    owner: :class:`Union[discord.Member, discord.User]`
+    owner : :class:`Union[discord.Member, discord.User]`
         The Discord User or Member who started the interaction.
-    cog: :class:`KumaCog`
+    cog : :class:`KumaCog`
         The parent Cog.
-    recent_interaction: :class:`Optional[discord.Interaction]`
+    recent_interaction : :class:`Optional[discord.Interaction]`
         The most recent interaction that sent content, by default ``None``.
-    components: :class:`list[discord.ui.Item[Any]]`
+    components : :class:`list[discord.ui.Item[Any]]`
         Items that will be re-added to the view when :meth:`reset_view` is called.
-    dispatched_by: :class:`Optional[Union[KumaView, discord.ui.Button[KumaView]]]`
+    dispatched_by : :class:`Optional[Union[KumaView, discord.ui.Button[KumaView]]]`
         What spawned this view, if applicable.
-    embeds: :class:`Optional[Sequence[KumaEmbed]]`
+    embeds : :class:`Optional[Sequence[KumaEmbed]]`
         The embeds attached to the view, if applicable.
-    indx: :class:`int`
+    indx : :class:`int`
         Index key into :attr:`embeds`, by default ``0``.
-    ts_string: :class:`str`
+    ts_string : :class:`str`
         UTC-aware Discord timestamp string generated at construction time.
 
     """
@@ -576,20 +576,20 @@ class KumaView(discord.ui.View):
 
         Parameters
         ----------
-        owner: :class:`Optional[Union[discord.Member, discord.User, discord.ClientUser]]`
+        owner : :class:`Optional[Union[discord.Member, discord.User, discord.ClientUser]]`
             The invoker; pass the bot for a public view anyone may interact with, or ``None`` for a
             preview no one may interact with.
-        cog: :class:`KumaCog`
+        cog : :class:`KumaCog`
             The parent Cog. Used to generate :attr:`ts_string`.
-        embeds: :class:`Optional[Sequence[KumaEmbed]]`, optional
+        embeds : :class:`Optional[Sequence[KumaEmbed]]`, optional
             Embeds to page through. Previous/Next buttons are removed when ``len <= 1``.
-        components: :class:`Optional[list[discord.ui.Item[Any]]]`, optional
+        components : :class:`Optional[list[discord.ui.Item[Any]]]`, optional
             Additional items to add immediately and restore on :meth:`reset_view`.
-        recent_interaction: :class:`Optional[discord.Interaction]`, optional
+        recent_interaction : :class:`Optional[discord.Interaction]`, optional
             The most recent interaction, by default ``None``.
-        dispatched_by: :class:`Optional[Union[Self, discord.ui.Button[Self]]]`, optional
+        dispatched_by : :class:`Optional[Union[Self, discord.ui.Button[Self]]]`, optional
             What spawned this view, by default ``None``.
-        timeout: :class:`Optional[float]`, optional
+        timeout : :class:`Optional[float]`, optional
             Seconds before the view stops accepting input, by default ``180``.
 
         """
@@ -710,7 +710,7 @@ class KumaView(discord.ui.View):
 
         Parameters
         ----------
-        embeds: :class:`Sequence[KumaEmbed]`
+        embeds : :class:`Sequence[KumaEmbed]`
             The view's embeds; passed in so the caller's `None` check narrows the type.
 
         Returns

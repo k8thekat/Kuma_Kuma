@@ -79,7 +79,7 @@ def reload_module_dependencies(module_path: str, /, *, package_root: str = "util
 
     def visit(module: ModuleType) -> None:
         # Guard against re-visiting and circular imports (A imports B, B imports
-        # A) — mark `seen` *before* recursing.
+        # A) - mark `seen` *before* recursing.
         if module.__name__ in seen:
             return
         seen.add(module.__name__)
@@ -110,5 +110,18 @@ def reload_module_dependencies(module_path: str, /, *, package_root: str = "util
     for module in ordered:
         importlib.reload(module=module)
         reloaded.add(module.__name__)
+
+    # When any submodule of the package root was reloaded, the root's ``__init__``
+    # still holds the *old* names from its ``from .submod import *`` lines.  Re-execute
+    # the package init so it re-binds them; without this, a consumer that does
+    # ``from utils import KumaContainer`` gets the stale v1 class while the freshly
+    # reloaded ``utils.ui`` now defines v2, and ``isinstance`` silently fails.
+    pkg_init: Optional[ModuleType] = sys.modules.get(package_root)
+    # Kept nested rather than combined; the outer check is "is there a root init we have not already
+    # done", the inner is "did anything under it actually reload", and one three-clause `and` hides that.
+    if pkg_init is not None and pkg_init.__name__ not in reloaded:  # noqa: SIM102
+        if any(name.startswith(f"{package_root}.") for name in reloaded):
+            importlib.reload(module=pkg_init)
+            reloaded.add(pkg_init.__name__)
 
     return reloaded
