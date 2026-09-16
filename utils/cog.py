@@ -107,14 +107,14 @@ class UnicodeTable:
     right_arrow: str = "\U000021e2"  # RIGHTWARDS DASHED ARROW - ⇢ - ⇢ - http://www.fileformat.info/info/unicode/char/21e2
     colon: str = "\U00002236"  # RATIO - ∶ - ∶ - http://www.fileformat.info/info/unicode/char/2236  # noqa: RUF003
     right_triangle_arrow: str = "\U000022b3"  # CONTAINS AS NORMAL SUBGROUP - ⊳ - ⊳ - http://www.fileformat.info/info/unicode/char/22b3
-    right_hook_arrow: str = "\U000021aa" # RIGHTWARDS ARROW WITH HOOK - ↪ - ↪ - http://www.fileformat.info/info/unicode/char/21aa
-    star: str = "\U00002b50" # ⭐
+    right_hook_arrow: str = "\U000021aa"  # RIGHTWARDS ARROW WITH HOOK - ↪ - ↪ - http://www.fileformat.info/info/unicode/char/21aa
+    star: str = "\U00002b50"  # ⭐
     blank: str = "\u200b"
-    inbox_tray: str = "\U0001f4e5" # :inbox_tray:
-    loud_speaker: str = "\U0001f4e2" # : PUBLIC ADDRESS LOUDSPEAKER - 📢 - 📢 - http://www.fileformat.info/info/unicode/char/1f4e2
-    no_entry: str = "\U000026d4" #: NO ENTRY - ⛔ - ⛔ - http://www.fileformat.info/info/unicode/char/26d4
-    warning_sign: str = "\U000026a0" # : WARNING SIGN - ⚠ - ⚠ - http://www.fileformat.info/info/unicode/char/26a0
-    speed_bubble: str = "\U0001f5e8" #: LEFT SPEECH BUBBLE - 🗨 - 🗨 - http://www.fileformat.info/info/unicode/char/1f5e8
+    inbox_tray: str = "\U0001f4e5"  # :inbox_tray:
+    loud_speaker: str = "\U0001f4e2"  # : PUBLIC ADDRESS LOUDSPEAKER - 📢 - 📢 - http://www.fileformat.info/info/unicode/char/1f4e2
+    no_entry: str = "\U000026d4"  #: NO ENTRY - ⛔ - ⛔ - http://www.fileformat.info/info/unicode/char/26d4
+    warning_sign: str = "\U000026a0"  # : WARNING SIGN - ⚠ - ⚠ - http://www.fileformat.info/info/unicode/char/26a0
+    speed_bubble: str = "\U0001f5e8"  #: LEFT SPEECH BUBBLE - 🗨 - 🗨 - http://www.fileformat.info/info/unicode/char/1f5e8
     sun_behind_cloud: str = "\U000026c5"  # SUN BEHIND CLOUD - ⛅ - ⛅ - http://www.fileformat.info/info/unicode/char/26c5
     lotus: str = "\U0001fab7"  # LOTUS - 🪷 - 🪷 - http://www.fileformat.info/info/unicode/char/1fab7
     game_die: str = "\U0001f3b2"  # GAME DIE - 🎲 - 🎲 - http://www.fileformat.info/info/unicode/char/1f3b2
@@ -123,16 +123,20 @@ class UnicodeTable:
     identification_card: str = "\U0001faaa"  # IDENTIFICATION CARD - 🪪 - 🪪 - http://www.fileformat.info/info/unicode/char/1faaa
     bar_chart: str = "\U0001f4ca"  # BAR CHART - 📊 - 📊 - http://www.fileformat.info/info/unicode/char/1f4ca
     no_one_under_eighteen: str = "\U0001f51e"  # NO ONE UNDER EIGHTEEN SYMBOL - 🔞 - 🔞 - http://www.fileformat.info/info/unicode/char/1f51e
-    check_mark: str = "\U00002713"  # CHECK MARK - ✓
-    ballot_x: str = "\U00002717"  # BALLOT X - ✗
-    black_circle: str = "\U000025cf"  # BLACK CIRCLE - ●
-    white_circle: str = "\U000025cb"  # WHITE CIRCLE - ○
-    black_diamond: str = "\U000025c6"  # BLACK DIAMOND - ◆
-    white_diamond: str = "\U000025c7"  # WHITE DIAMOND - ◇
-    black_small_square: str = "\U000025aa"  # BLACK SMALL SQUARE - ▪
-    white_small_square: str = "\U000025ab"  # WHITE SMALL SQUARE - ▫
-    black_rectangle: str = "\U000025b0"  # BLACK RECTANGLE - ▰
-    white_rectangle: str = "\U000025b1"  # WHITE RECTANGLE - ▱
+
+    # Status indicators.
+    check_mark: str = "\U00002713"  # CHECK MARK - ✓ - ✓ - http://www.fileformat.info/info/unicode/char/2713
+    ballot_x: str = "\U00002717"  # BALLOT X - ✗ - ✗ - http://www.fileformat.info/info/unicode/char/2717
+
+    # Geometric shapes.
+    black_circle: str = "\U000025cf"  # BLACK CIRCLE - ● - ● - http://www.fileformat.info/info/unicode/char/25cf
+    white_circle: str = "\U000025cb"  # WHITE CIRCLE - ○ - ○ - http://www.fileformat.info/info/unicode/char/25cb
+    black_diamond: str = "\U000025c6"  # BLACK DIAMOND - ◆ - ◆ - http://www.fileformat.info/info/unicode/char/25c6
+    white_diamond: str = "\U000025c7"  # WHITE DIAMOND - ◇ - ◇ - http://www.fileformat.info/info/unicode/char/25c7
+    black_small_square: str = "\U000025aa"  # BLACK SMALL SQUARE - ▪ - ▪ - http://www.fileformat.info/info/unicode/char/25aa
+    white_small_square: str = "\U000025ab"  # WHITE SMALL SQUARE - ▫ - ▫ - http://www.fileformat.info/info/unicode/char/25ab
+    black_rectangle: str = "\U000025b0"  # BLACK RECTANGLE - ▰ - a filled progress-bar cell
+    white_rectangle: str = "\U000025b1"  # WHITE RECTANGLE - ▱ - an empty progress-bar cell
     ```
 
     """
@@ -178,60 +182,25 @@ class UnicodeTable:
 class KumaEmojiTable:
     """Usage - <:_:emoji_id>."""
 
-    kuma_rawr = "<:kuma_rawr:1337130200009281559>"
-    kuma_crying = "<:kuma_crying:1337130201527750757>"
-    kuma_tear = "<:kuma_tear:1337130203096420372>"
-    kuma_happy = "<:kuma_happy:1337130204547780648>"
-    kuma_star_eye = "<:kuma_star_eye:1337130207462817946>"
-    kuma_shy = "<:kuma_shy:1337130209446592513>"
-    kuma_peak = "<:kuma_peak:1337130211128377406>"
-    kuma_chuckle = "<:kuma_chuckle:1337130212890247199>"
-    kuma_heart = "<:kuma_heart:1337130214492475475>"
-    kuma_sad = "<:kuma_sad:1337130217071841441>"
-    kuma_shrug = "<:kuma_shrug:1337130218963468448>"
-    kuma_hmm = "<:kuma_hmm:1337130227788415087>"
-    kuma_tea = "<:kuma_tea:1337130230598602792>"
-    kuma_shock = "<:kuma_shock:1337130232993288244>"
-    kuma_bleh = "<:kuma_bleh:1337130235472117841>"
-    kuma_uwu = "<:kuma_uwu:1337130237225603092>"
-    kuma_wow = "<:kuma_wow:1337130238878154893>"
-    kuma_pout = "<:kuma_pout:1337133347163345019>"
-    kuma_head_clench = "<:kuma_head_clench:1337133349612814398>"
-
-    # Retired: every entry is a plain class attribute, so `table.kuma_happy` says the same thing at
-    # no cost and without a lookup that could raise. The `int` branch never worked anyway - it
-    # compared the ID against the whole `<:name:id>` string, so an ID lookup always raised.
-    # Use the attribute directly, or `get_emoji()` when the name is only known at runtime.
-    # @staticmethod
-    # def to_inline_emoji(emoji: Union[str, int]) -> Optional[str]:
-    #     """Converts the emoji provided into a Discord in line str type emoji for usage.
-    #
-    #     Parameters
-    #     ----------
-    #     emoji: Union[:class:`str`, :class:`int`]
-    #         Either the emoji name or the ID to lookup..
-    #
-    #     Returns
-    #     -------
-    #     :class:`str`
-    #         Discord in line Emoji string.
-    #
-    #     Raises
-    #     ------
-    #     LookupError
-    #         If the emoji provided does not exist.
-    #
-    #     """
-    #     if isinstance(emoji, str):
-    #         emoji = emoji.lower()
-    #
-    #     for key, value in KumaEmojiTable.__dict__.items():
-    #         if isinstance(emoji, str) and emoji == key:
-    #             return value
-    #         if isinstance(emoji, int) and emoji == value:
-    #             return value
-    #     msg = "The Emoji provided does not exist. | %s"
-    #     raise LookupError(msg, emoji)
+    kuma_rawr: str = "<:kuma_rawr:1337130200009281559>"
+    kuma_crying: str = "<:kuma_crying:1337130201527750757>"
+    kuma_tear: str = "<:kuma_tear:1337130203096420372>"
+    kuma_happy: str = "<:kuma_happy:1337130204547780648>"
+    kuma_star_eye: str = "<:kuma_star_eye:1337130207462817946>"
+    kuma_shy: str = "<:kuma_shy:1337130209446592513>"
+    kuma_peak: str = "<:kuma_peak:1337130211128377406>"
+    kuma_chuckle: str = "<:kuma_chuckle:1337130212890247199>"
+    kuma_heart: str = "<:kuma_heart:1337130214492475475>"
+    kuma_sad: str = "<:kuma_sad:1337130217071841441>"
+    kuma_shrug: str = "<:kuma_shrug:1337130218963468448>"
+    kuma_hmm: str = "<:kuma_hmm:1337130227788415087>"
+    kuma_tea: str = "<:kuma_tea:1337130230598602792>"
+    kuma_shock: str = "<:kuma_shock:1337130232993288244>"
+    kuma_bleh: str = "<:kuma_bleh:1337130235472117841>"
+    kuma_uwu: str = "<:kuma_uwu:1337130237225603092>"
+    kuma_wow: str = "<:kuma_wow:1337130238878154893>"
+    kuma_pout: str = "<:kuma_pout:1337133347163345019>"
+    kuma_head_clench: str = "<:kuma_head_clench:1337133349612814398>"
 
     @classmethod
     def get_emoji(cls, name: str) -> Optional[str]:
@@ -244,25 +213,20 @@ class KumaEmojiTable:
 
         Returns
         -------
-        :class:`str`
-            The Discord in line emoji string, if able to find the emoji.
+        :class:`Optional[str]`
+            The Discord inline emoji string, or `None` when no emoji goes by that name.
 
         """
-        for key, value in cls.__dict__.items():
-            if name.lower() == key:
-                return value
-        return None
+        emoji: Any = cls.__dict__.get(name.lower())
+        return emoji if isinstance(emoji, str) else None
 
     @classmethod
     def to_cdn_url(cls, name: str, *, size: int = 128) -> Optional[str]:
         """Get the CDN image URL for one of our Application Emojis by name.
 
-        Components V2 parts that show an image (:class:`discord.ui.Thumbnail`,
-        :class:`discord.MediaGalleryItem`) take either a URL or an `attachment://` reference. An
-        attachment has to be re-uploaded on every edit of the message carrying it, which is no good for
-        a component that gets re-rendered often. Our emojis are already hosted by Discord and their IDs
-        are baked into this table, so pointing at the CDN puts Kuma artwork in a component for free; no
-        upload, and no attachment slot spent.
+        Components V2 image parts (:class:`discord.ui.Thumbnail`, :class:`discord.MediaGalleryItem`)
+        take a URL or an `attachment://` reference; our emojis are already hosted by Discord, so the
+        CDN URL puts Kuma artwork in a component without spending an attachment slot on every re-render.
 
         Parameters
         ----------
@@ -311,12 +275,8 @@ class KumaCog(commands.Cog):
         A simple str name attribute to int id value representation for ease of use.
     resources : :class:`KumaResources`
         A base class with pathlib Path attributes for accessing resources.
-
-
-    Properties
-    ----------
     unicode : :class:`UnicodeTable`
-        ...
+        A simple mapping of Unicode characters.
     metrics : :class:`Metrics`
         A dictionary containing useful information regarding metrics, can be expanded.
 
@@ -333,6 +293,9 @@ class KumaCog(commands.Cog):
     _metrics: dict[str, Metrics]
     _unicode: UnicodeTable = UnicodeTable()
 
+    # Keys on a settings TypedDict that are storage, not settings; never offered as something to change.
+    settings_excluded_keys: ClassVar[frozenset[str]] = frozenset({"id", "serverid", "userid"})
+
     @property
     def unicode(self) -> UnicodeTable:
         return self._unicode
@@ -345,7 +308,7 @@ class KumaCog(commands.Cog):
 
         Returns
         -------
-        :class:`Metrics`
+        :class:`dict[str, Metrics]`
             The current cog's metrics, keyed by owning cog name.
 
         """
@@ -353,22 +316,20 @@ class KumaCog(commands.Cog):
 
     @metrics.setter
     def metrics(self, value: dict[str, Metrics]) -> None:
-        self._metrics: dict[str, Metrics] = value
+        self._metrics = value
 
     def __init__(self, bot: Kuma_Kuma) -> None:
-        """Builds the base :class:`KumaCog` class object.
+        """Build the base :class:`KumaCog`.
 
-        Set's self.bot, self.message_timeout.
-        - Set's the Cogs start time using :class:`time.time()`
+        Sets :attr:`bot` and :attr:`message_timeout`, then seeds :attr:`metrics` with this cog's
+        start time, keyed by the runtime subclass name.
 
         """
         self.bot = bot
         self.message_timeout = bot.message_timeout
-        # `type(self)`, not `__class__` - the latter is bound to the class the method is *written*
-        # in, so every cog keyed its metrics under "KumaCog" and the last one loaded won. A cog
-        # reading `self.metrics[<its own name>]` only worked if it overwrote the dict itself.
         self.metrics = {type(self).__name__: {"uptime": {"start": datetime.datetime.now(tz=datetime.UTC)}}}
 
+    # TODO: Need to revisit this and validate logic, understand usage and code style updates.
     async def resolve_cdn_emoji(
         self,
         *,
@@ -395,10 +356,9 @@ class KumaCog(commands.Cog):
 
         Returns
         -------
-        tuple[:class:`discord.PartialEmoji`, :class:`Optional[bytes]`]
-            The wired emoji and, when a probe succeeded, the raw image bytes.
-            ``None`` bytes when no probe ran - the caller should ``emoji.read()``
-            as usual.
+        :class:`tuple[discord.PartialEmoji, Optional[bytes]]`
+            The wired emoji and, when a probe succeeded, the raw image bytes. `None` bytes when no
+            probe ran; the caller should `emoji.read()` as usual.
 
         """
         partial: discord.PartialEmoji = discord.PartialEmoji.with_state(
@@ -436,16 +396,7 @@ class KumaCog(commands.Cog):
         """
         return self.bot.get_guild(self.owner_guild.id)
 
-    # Keys on a settings TypedDict that are storage rather than settings, so they are never offered
-    # as something to change.
-    settings_excluded_keys: ClassVar[frozenset[str]] = frozenset({"id", "serverid", "userid"})
-
-    # The column every user scoped table keys on. A convention rather than a foreign key into some
-    # global users table; a Discord ID is already a stable 64 bit key of its own, so a surrogate would
-    # only add an ordering rule to every insert and a JOIN to every read. Repeating this line is the
-    # join key, spelled the same way each time so a lookup never has to guess the column name.
-    user_id_column: ClassVar[str] = "userid INTEGER NOT NULL"
-
+    # TODO: Need to revisit this and validate logic, understand usage and code style updates.
     @staticmethod
     def settings_choices(settings: type, *, exclude: Iterable[str] = ()) -> list[app_commands.Choice[str]]:
         """Turns a settings TypedDict into the app command choices for changing it.
@@ -477,6 +428,7 @@ class KumaCog(commands.Cog):
         # the field list and it keeps declaration order, which is the order the choices should read in.
         return [app_commands.Choice(name=key, value=key) for key in settings.__annotations__ if key not in skipped]
 
+    # TODO: Need to revisit this and validate logic, understand usage and code style updates.
     @staticmethod
     def rotate_pick[T](entries: Sequence[T], *, offset: int = 0, window: int = ROTATE_WINDOW) -> T:
         """Choose one of several entries, rotating which one on a fixed cadence.
@@ -529,15 +481,15 @@ class KumaCog(commands.Cog):
 
         Parameters
         ----------
-        time : :class:`datetime`
-            The datetime object to timestamp.
+        time : :class:`Optional[datetime.datetime]`, optional
+            The datetime object to timestamp; the current UTC time when `None`, by default `None`.
         style : :class:`_timestamp_styles`, optional
             The Format to display the text in, by default "F".
 
         Returns
         -------
         :class:`str`
-            The markdown text to use in Discord content to display the timestmap.
+            The markdown text to use in Discord content to display the timestamp.
 
         """
         if time is None:
@@ -618,7 +570,7 @@ class KumaCog(commands.Cog):
                 status.add_line("✓ 42 items")
 
         The label is rendered verbatim; inflect it yourself with :meth:`string_inflection` first
-        if you want a bare verb to read as an action in progress (`"Read"` → `"Reading"`).
+        if you want a bare verb to read as an action in progress (`"Read"` becomes `"Reading"`).
 
         Parameters
         ----------
@@ -659,9 +611,9 @@ class KumaCog(commands.Cog):
 
         """
         try:
-            async with self.bot.session.get(url=url, **request_params) as session:
-                if session.status >= 200 and session.status < 300:
-                    return await session.read()
+            async with self.bot.session.get(url=url, **request_params) as response:
+                if 200 <= response.status < 300:
+                    return await response.read()
         except (TimeoutError, aiohttp.ClientError) as e:
             # `type(self)` here on purpose; every cog shares this helper, so the runtime subclass names
             # which one lost the connection where `__class__` would only ever say "KumaCog".
@@ -674,7 +626,7 @@ class KumaCog(commands.Cog):
             )
         return None
 
-    # TODO: Need to revist this and validate logic.
+    # TODO: Need to revisit this and validate logic.
     async def emoji_followup(
         self,
         destination: Union[discord.abc.Messageable, discord.Interaction],
@@ -732,6 +684,52 @@ class KumaCog(commands.Cog):
             return await raw_channel.send(content)
         return await destination.send(content)
 
+    @staticmethod
+    async def create_webhook(
+        channel: discord.TextChannel,
+        *,
+        name: str,
+        member: Optional[discord.Member] = None,
+        reason: Optional[str] = None,
+    ) -> discord.Webhook:
+        """Create a webhook in *channel*, owned by the bot's application.
+
+        A webhook the bot creates is owned by the application, so Discord lets it carry interactive
+        message components; one made by hand or by another app cannot, and a 50035 is the tell.
+
+        Parameters
+        ----------
+        channel : :class:`discord.TextChannel`
+            The channel to create the webhook in.
+        name : :class:`str`
+            The name to give the new webhook.
+        member : :class:`Optional[discord.Member]`, optional
+            A member who must also hold `Manage Webhooks` in the channel, by default `None`.
+        reason : :class:`Optional[str]`, optional
+            The audit-log reason for the creation, by default `None`.
+
+        Returns
+        -------
+        :class:`discord.Webhook`
+            The newly created, application-owned webhook.
+
+        Raises
+        ------
+        PermissionError
+            The bot, or *member*, cannot manage webhooks in *channel*.
+        discord.HTTPException
+            Discord refused the creation.
+
+        """
+        bot_member: Optional[discord.Member] = channel.guild.me
+        if bot_member is None or channel.permissions_for(bot_member).manage_webhooks is False:
+            msg: str = f"I don't have `Manage Webhooks` in {channel.mention}."
+            raise PermissionError(msg)
+        if member is not None and channel.permissions_for(member).manage_webhooks is False:
+            msg = f"You don't have webhook permissions in {channel.mention}."
+            raise PermissionError(msg)
+        return await channel.create_webhook(name=name, reason=reason)
+
 
 # region --- Moogle Intuition / FFXIV
 class MooglesIntuitionEmojis:
@@ -751,7 +749,7 @@ class MooglesIntuitionEmojis:
     bag_with_exclamation = "<:bag_with_exclamation:1442003581262762157>"
     "A Satchel similar to the inventory icon with an exclamation mark - Application Emoji"
     bait: str = "<:bait:1452081174661824673>"
-    "Change Bait Fisher action icon - APplication Emoji"
+    "Change Bait Fisher action icon - Application Emoji"
     bot_icon = "<:bot_icon:1441485719469166734>"
     "Botanist Job - Application Emoji"
     botanist_icon_mini = "<:botanist_icon_mini:1441607824974155858>"
@@ -789,7 +787,7 @@ class MooglesIntuitionEmojis:
     dungeon_icon = "<:dungeon_icon:1441485706592518388>"
     "Generic Dungeon Icon - Application Emoji"
     error_icon = "<:error_icon:1441607828552028390>"
-    "Caution traingle with exclamation mark - Application Emoji"
+    "Caution triangle with exclamation mark - Application Emoji"
     ewicon = "<:ewicon:1441468519202951208>"
     "Endwalker Expansion - Application Emoji"
     fate_icon = "<:fate_icon:1441637603542827028>"
@@ -805,7 +803,7 @@ class MooglesIntuitionEmojis:
     fsh_icon = "<:fsh_icon:1441467900450836550>"
     "Fisher Job - Application Emoji"
     gatheringicon = "<:gatheringicon:1441468520461369425>"
-    "Miner and Botanisty icons in an X pattern - Application Emoji"
+    "Miner and Botanist icons in an X pattern - Application Emoji"
     gathering_log_icon = "<:gathering_log_icon:1442268118230765628>"
     "The Gathering Log icon from in game UI - Application Emoji"
     garlandtools_icon = "<:garlandtoolsicon:1466429637222600952>"
@@ -908,14 +906,12 @@ class MooglesIntuitionEmojis:
 
         Returns
         -------
-        :class:`str`
-            The Discord in line emoji string, if able to find the emoji.
+        :class:`Optional[str]`
+            The Discord inline emoji string, or `None` when no emoji goes by that name.
 
         """
-        for key, value in cls.__dict__.items():
-            if name.lower() == key:
-                return value
-        return None
+        emoji: Any = cls.__dict__.get(name.lower())
+        return emoji if isinstance(emoji, str) else None
 
 
 class FFXIVResources:
@@ -1032,7 +1028,7 @@ class FFXIVResources:
 
     @classmethod
     def get_moogle_icon(cls, filename: str = "moogle-icon.png") -> discord.File:
-        """Get the Moogle Intution Icon from local files.
+        """Get the Moogle Intuition Icon from local files.
 
         Parameters
         ----------
@@ -1042,7 +1038,7 @@ class FFXIVResources:
         Returns
         -------
         :class:`discord.File`
-            A discord.File object of the Moogle Intution icon file.
+            A discord.File object of the Moogle Intuition icon file.
 
         """
         return discord.File(fp=cls.resource_path.joinpath("moogle-emoji-1.png"), filename=filename)
