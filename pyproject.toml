@@ -108,13 +108,16 @@ venvPath = "."
 venv = ".venv"
 # gap (GoogleAPI-python) is an editable git install; pyright's static resolver
 # does not follow .pth-based editable installs, so the source root is listed here.
-extraPaths = ["/home/kat/gitHub/GoogleAPI-python"]
+extraPaths = ["/home/kat/gitHub/GoogleAPI-python", "/home/kat/gitHub/a_sonarr_radarr"]
 typeCheckingMode = "standard"
 pythonVersion = "3.12"
 exclude = ["logs/**", "**/.venv/**", "**/.vscode-server/", "/usr/*", "**/node_modules", "**/__pycache__", "**/.*"]
 include = [""]
 useLibraryCodeForTypes = true
 reportIncompatibleMethodOverride = false
+
+[tool.setuptools]
+packages = []
 
 [build-system]
 requires = ["setuptools>=61.0"]
