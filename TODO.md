@@ -29,7 +29,6 @@
 - Capture `/effort` reply so a rejected level is reported back instead of the panel claiming it.
 - `panel_files` could render images as a `MediaGallery` instead of a filename list.
 - Move pre-existing research folders in `extensions/.claude_asks/` under a `_shared/` folder.
-- A bare message ID probes channels one at a time, capped at `MESSAGE_SEARCH_LIMIT` (40). Pasting the full link is always cheaper.
 
 #### Claude — shelved variants (`.archive/`)
 - Decide what comes forward from `.archive/_claude.py` — access tiers, cwd-boundary denial handling, `tools_explicit`, `/claude spoof`. See NOTES.md for the measured findings on each.
@@ -43,8 +42,6 @@
 - `BaseView` does not inherit `KumaView` — every fix has to be applied twice. Decide whether the fork can be collapsed.
 - Footers written unconditionally at `ffxiv.py:1730`/`:1758` — latent only, no caller builds its own footer today. Port `page_embed()` if one ever does.
 
-### UnicodeTable (`utils/cog.py`)
-- `__Current Attributes__` docstring block is a hand-maintained mirror — every new character has to be written twice.
 
 ### Hints (`extensions/hints.py`)
 - `HINTS_PER_PAGE` is 8 — nine items hit 38 of the 40-component CV2 cap.
@@ -81,20 +78,13 @@
 ### Gatekeeper (`extensions/gatekeeper.py`)
 - Take Announcements channel that @role and pass into the Server Console for each server.
 - Notification when server is online.
-- Fixed Server list updating in realtime.
-    - Fix logger prints when updating "available Instances" (appears ~4 times).
 
 ### Reddit Image Crawler (`extensions/reddit.py`)
-- Change compare (`on_reaction_compare`) to a slash command.
+- Extend the compare commands (`hash_comparison` / `edge_comparison`) - they take raw URL strings only:
     - Support `RedditEmbeds`, file attachments and urls.
     - Support message links/IDs.
     - Store last 50/60 Embeds? Use Title for listings?
 - See about getting the Subreddit's Banner/Icon for the Embed.
-- Components V2 conversion — `RedditPost`, `RedditPagePanel` and `reddit_preview` exist but call sites still send `RedditEmbed`. Three things need fixing together:
-    - `on_reaction_compare` reads `embeds[0].image.url` — V2 has no embeds, read `attachments[0].url`.
-    - `webhook_send`'s 413 retry mutates embed fields — use `RedditPost.use_remote_media()`.
-    - `KumaView` can't drive a `LayoutView` — need `RedditPagedView`.
-- `UnicodeTable.em_dash` is `\Ufe31` (vertical form `︱`) — use a literal `—` for bullet lists.
 - `check_subreddit` hits the Reddit API via `search_by_name` — expensive, could cache or HEAD `/r/{sub}/about.json`.
 - `normalize_subreddit()` only applied by `add_subreddit`; other commands take raw input.
 
@@ -114,18 +104,15 @@
 - Roll quality comparison and best-in-slot tracking across saved items.
 - Affix search — find saved items matching a stat filter.
 
-### Google Keep (planned)
-- Interface with Google Keep via `gkeepapi` (unofficial, no official REST API).
-    - Auth: master token via `keep.login()`/`keep.resume()`, stored securely, reused via `keep.getMasterToken()`.
-    - Sync is manual: `keep.sync()` to pull, create/delete + `keep.sync()` to push.
-- Commands: create note, append to note, list (filter by label/pinned), delete/archive, checklist support.
-- Labels map to command groups or filters.
-- `gkeepapi` is sync-only — wrap in `asyncio.to_thread()`.
+### Google Keep (`extensions/private/gkeep.py`)
+- Built on the `gap` package (`KeepServicePersonal`), not `gkeepapi`; the cog loads but stays inert until `/keep_setup` stores credentials, and blocking calls are already wrapped in `asyncio.to_thread`.
+- Commands so far: `keep_setup` (master-token modal + persistence) and `keep_list`. Still to add: create note, append to note, delete/archive, checklist support.
+- Labels: no handling yet - map to command groups or filters.
 
 ### Utility (`extensions/utility.py`)
 - GitHub issue attachment links expire in ~a day (Discord signs CDN URLs). Making them durable means re-hosting the bytes.
     - Untested against Discord — verified offline only.
-- Expand `source` command: resolve arbitrary objects via dotted paths, support multiple matches, present as selectable list.
+- Expand `source`: the new `fnsearch` command already covers dotted `Class.method` queries and multiple matches; `source` itself still resolves only bot commands (single result). Remaining: arbitrary objects via dotted paths, and a selectable list.
 - Add auto-thread creation for a "set" channel with rulesets (contains images, @mentions, etc.).
 
 ### FFXIV (`extensions/ffxiv.py`)
