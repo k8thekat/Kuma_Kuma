@@ -462,13 +462,6 @@ class KumaCommandTree(app_commands.CommandTree):
         super().__init__(*args, **kwargs)
         self._mention_app_commands: dict[int | None, list[app_commands.AppCommand]] = {}
 
-    async def interaction_check(self, interaction: Interaction, /) -> bool:
-        command_name = interaction.command.qualified_name if interaction.command else "Unknown"
-        cog_name = getattr(interaction.command, "binding", None)
-        cog_name = type(cog_name).__name__ if cog_name else "N/A"
-        LOGGER.info("%s used %s -> /%s", interaction.user.name, cog_name, command_name)
-        return True
-
     async def sync(self, *, guild: Optional[discord.abc.Snowflake] = None) -> list[app_commands.AppCommand]:
         """Method overwritten to store the commands."""
         ret = await super().sync(guild=guild)
@@ -914,9 +907,7 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
         pass
 
     async def on_command(self, context: KumaContext) -> None:
-        cog_name = "N/A" if context.command is None else context.command.cog_name
-        LOGGER.info("%s used %s -> %s", context.author.name, cog_name, context.command)
-        # Deletes the command invocation message.
+        # Deletes the command invocation message; usage is logged on completion, not here.
         try:
             # A `Repl` session keeps answering the message that started it - every result is sent
             # with it as the reply reference - so deleting the invocation would leave the whole
@@ -1001,6 +992,12 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
         # if self.restart_requested is True:
         #     return
 
+        # A hybrid run as a slash also fires this, but `on_app_command_completion` already logged
+        # that invocation with its `/name`; skip it here so one use is not logged twice.
+        if context.interaction is None:
+            cog_name = "N/A" if context.command is None else context.command.cog_name
+            LOGGER.info("%s used %s -> %s", context.author.name, cog_name, context.command)
+
         # If the command was invoked by a prefix or mention, delete immediately instead of
         # waiting for the `message_timeout` delay set in `on_command`.
         if (
@@ -1021,6 +1018,17 @@ class Kuma_Kuma(commands.Bot):  # noqa: N801
                     context.command,
                     exc_info=e,
                 )
+
+    async def on_app_command_completion(
+        self,
+        interaction: Interaction,
+        command: Union[app_commands.Command, app_commands.ContextMenu],
+    ) -> None:
+        # One line per slash use; fires once per completed app command. The tree's old
+        # `interaction_check` logged every autocomplete keystroke and button press too.
+        cog_name = getattr(command, "binding", None)
+        cog_name = type(cog_name).__name__ if cog_name else "N/A"
+        LOGGER.info("%s used %s -> /%s", interaction.user.name, cog_name, command.qualified_name)
 
     async def on_reaction_add(self, reaction: discord.Reaction, user: Union[discord.Member, discord.User]) -> None:
         """Called when a message has a reaction added to it.
