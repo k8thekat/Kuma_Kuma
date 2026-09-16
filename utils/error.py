@@ -16,17 +16,6 @@ You should have received a copy of the GNU General Public License
 along with Kuma Kuma Bear; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA
 02110-1301, USA.
-
-Error recording, deduplication, and reporting.
-
-Two tables keep errors searchable without letting the database grow unbounded:
-
-- ``errors`` stores each unique traceback once, keyed by a SHA-256 hash, with a lifetime
-  occurrence count and first/last seen timestamps.
-- ``error_occurrences`` stores every individual event with its context (who, where, which command).
-  Rows older than seven days are pruned at startup.
-
-The CV2 report is a :class:`ErrorReport` LayoutView sent silently to the bot owner's DMs.
 """
 
 from __future__ import annotations
@@ -49,6 +38,18 @@ if TYPE_CHECKING:
 __all__ = ("cleanup_old_occurrences", "report_error", "setup_error_tables", "setup_errors")
 
 LOGGER = logging.getLogger(__name__)
+
+# Error recording, deduplication, and reporting.
+
+# Two tables keep errors searchable without letting the database grow unbounded:
+
+# - ``errors`` stores each unique traceback once, keyed by a SHA-256 hash, with a lifetime
+#   occurrence count and first/last seen timestamps.
+# - ``error_occurrences`` stores every individual event with its context (who, where, which command).
+#   Rows older than seven days are pruned at startup.
+
+# The CV2 report is a :class:`ErrorReport` LayoutView sent silently to the bot owner's DMs.
+
 
 
 # ---------------------------------------------------------------------------
