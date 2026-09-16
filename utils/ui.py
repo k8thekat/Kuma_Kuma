@@ -23,7 +23,7 @@ from __future__ import annotations
 import datetime
 import logging
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional, Self, TypeVar, Union, Unpack
+from typing import TYPE_CHECKING, Any, ClassVar, Optional, Self, TypeVar, Union, Unpack
 
 import discord
 
@@ -45,6 +45,7 @@ __all__ = (
     "GenericButton",
     "KumaContainer",
     "KumaLayoutView",
+    "KumaTextDisplay",
     "KumaView",
     "PanelAccess",
 )
@@ -235,7 +236,7 @@ class KumaLayoutView(discord.ui.LayoutView):
         """
         self.remove_item(self.container)
         self.indx += step
-        await self._kuma_mount_container(self.container)
+        await self._mount_container(self.container)
 
         if self.c_length > 1:
             self.remove_item(self._nav_row)
@@ -260,7 +261,7 @@ class KumaLayoutView(discord.ui.LayoutView):
         self._nav_row = discord.ui.ActionRow(self._prev, self._next)
         return self._nav_row
 
-    async def _kuma_mount_container(self, container: KumaContainer) -> None:
+    async def _mount_container(self, container: KumaContainer) -> None:
         """Attach *container* to the view and run its :meth:`~KumaContainer._kuma_prepare` hook.
 
         Mounting is attach plus initialize: the container is added to the tree, then its own prepare
@@ -273,7 +274,7 @@ class KumaLayoutView(discord.ui.LayoutView):
 
         """
         self.add_item(container)
-        await container._kuma_prepare()  # noqa: SLF001
+        await container._prepare()  # noqa: SLF001
 
     async def add_containers(self, containers: KumaContainer | Sequence[KumaContainer], position: int = 0) -> Self:
         """Set the container pages and attach the current one; adds navigation if there is more than one.
@@ -293,54 +294,80 @@ class KumaLayoutView(discord.ui.LayoutView):
         """
         self._containers = [containers] if isinstance(containers, KumaContainer) else containers
         self.indx = position
-        await self._kuma_mount_container(self.container)
+        await self._mount_container(self.container)
 
         if len(self._containers) > 1:
             self.add_item(self.navigation_row())
         return self
 
-    # def add_item(self, item: Item[Any], default: bool = False) -> Self:
-    #     """Generic overwrite of `add_item` to handle setting our :class:`Self.container` property. Adds an item to the view.
+    @classmethod
+    async def from_content(
+        cls,
+        content: Union[str, Sequence[str]],
+        *,
+        title: Optional[str] = None,
+        cog: Optional[KumaCog] = None,
+        owner: Optional[Union[discord.Member, discord.User, discord.ClientUser]],
+        include_footer: bool = True,
+        include_separator: bool = True,
+        max_lines: Optional[int] = None,
+        accent_colour: Optional[Union[discord.Colour, int]] = None,
+        timeout: Optional[float] = 180.0,  # noqa: ASYNC109
+    ) -> Self:
+        """Build a paginated view from *content*, one :class:`KumaContainer` page per fitted chunk.
 
-    #     This function returns the class instance to allow for fluent-style
-    #     chaining.
+        .. note::
+            *title* repeats on every page and shares the container's character budget with the footer.
+            :attr:`KumaTextDisplay.char_limit` already sits ~500 under Discord's ceiling, which covers a
+            heading and footer; a title approaching that margin would need paging of its own.
 
-    #     Parameters
-    #     ----------
-    #     item: :class:`Item`
-    #         The item to add to the view.
-    #     default: :class:`bool`, default `False`
-    #         Set's our :class:`Self` container property.
+        Parameters
+        ----------
+        content : :class:`Union[str, Sequence[str]]`
+            A single body, split on its newlines, or the pre-formatted lines to paginate.
+        title : :class:`Optional[str]`, optional
+            A ``## title`` heading repeated atop every page; omitted when `None`, by default `None`.
+        cog : :class:`Optional[KumaCog]`, optional
+            The parent cog, forwarded to the view, by default `None`.
+        owner : :class:`Optional[Union[discord.Member, discord.User, discord.ClientUser]]`
+            The person allowed to page the view; `None` for a preview no one may interact with.
+        include_footer : :class:`bool`, optional
+            Give each page the paginator footer, by default `True`.
+        include_separator : :class:`bool`, optional
+            Place a large separator under the title, by default `True`.
+        max_lines : :class:`Optional[int]`, optional
+            Soft line cut per page, forwarded to :meth:`KumaTextDisplay.paginate`, by default `None`.
+        accent_colour : :class:`Optional[Union[discord.Colour, int]]`, optional
+            The container's left-bar colour, by default `None`.
+        timeout : :class:`Optional[float]`, optional
+            Seconds before the view stops accepting input, by default ``180.0``.
 
-    #     Raises
-    #     ------
-    #     TypeError
-    #         An :class:`Item` was not passed.
-    #     ValueError
-    #         Maximum number of children has been exceeded, the
-    #         row the item is trying to be added to is full or the item
-    #         you tried to add is not allowed in this View.
+        Returns
+        -------
+        :class:`Self`
+            The mounted view, ready to send.
 
-    #     """
-    #     if default:
-    #         if isinstance(item, KumaContainer):
-    #             self._container = item
-    #         else:
-    #             # This is going to be mainly for early debugging.
-    #             LOGGER.warning("<%s.%s> | Add item was called with a object != `discord.ui.Container`.", type(self).__name__, "add_item")
+        """
+        containers: list[KumaContainer] = []
+        for display in KumaTextDisplay.paginate(content, max_lines=max_lines):
+            container: KumaContainer = KumaContainer(include_footer=include_footer, accent_colour=accent_colour)
+            if title is not None:
+                container.add_title(title, include_separator=include_separator)
+            container.add_item(display)
+            containers.append(container)
 
-    #     return super().add_item(item)
+        return await cls(cog=cog, owner=owner, timeout=timeout).add_containers(containers)
 
 
 class KumaContainer(discord.ui.Container[KumaLayoutView]):
     """Base :class:`discord.ui.Container` for Kuma Kuma Bear; a single page inside a :class:`KumaLayoutView`.
 
-    Async or view-dependent content goes in :meth:`_kuma_populate`, which runs once the container is
+    Async or view-dependent content goes in :meth:`populate`, which runs once the container is
     attached and :attr:`view` is live. Static content can be added in ``__init__`` as usual.
 
     .. note::
-        Subclasses override :meth:`_kuma_populate` for content that needs the cog or the page position,
-        and :meth:`_paginator_footer` to restyle the page footer.
+        Subclasses override :meth:`populate` for content that needs the cog or the page position,
+        and :meth:`paginator_footer` to restyle the page footer or :meth:`footer` for a single page.
 
     """
 
@@ -378,11 +405,11 @@ class KumaContainer(discord.ui.Container[KumaLayoutView]):
         self._include_footer: bool = include_footer
         self._kuma_prepared: bool = False
 
-    async def _kuma_prepare(self) -> None:
+    async def _prepare(self) -> None:
         """Mount-time entry point: populate the container once, then add the footer.
 
-        Called by :meth:`KumaLayoutView._kuma_mount_container` after attach, so :attr:`view` is live.
-        Owns the run-once guard and the footer; subclasses override :meth:`_kuma_populate` for their
+        Called by :meth:`KumaLayoutView._mount_container` after attach, so :attr:`view` is live.
+        Owns the run-once guard and the footer; subclasses override :meth:`_populate` for their
         content rather than this method, so neither the guard nor a ``super()`` call is their concern.
 
         """
@@ -390,29 +417,22 @@ class KumaContainer(discord.ui.Container[KumaLayoutView]):
             return
         self._kuma_prepared = True
 
-        await self._kuma_populate()
+        try:
+            await self.populate()
+        except NotImplementedError:
+            LOGGER.debug("<%s.%s> | Populate called on an object with a non-overwritten function. ", type(self).__name__, "_kuma_prepare")
 
         if self._include_footer:
             if self.view.c_length == 1:
-                self._footer()
+                self.footer()
             else:
-                self._paginator_footer()
+                self.paginator_footer()
 
-    async def _kuma_populate(self) -> None:
-        """Build async or view-dependent content once the container is attached; the base adds nothing.
+    async def populate(self) -> None:
+        """Build async or view-dependent content once the container is attached; the base adds nothing."""
+        raise NotImplementedError
 
-        Override for content that needs the cog or the page position. The base :meth:`_kuma_prepare`
-        runs the run-once guard and adds the footer around this call, so a subclass writes only its
-        own items here.
-
-        .. warning::
-            This is awaited on the interaction path (:meth:`KumaLayoutView.page_turn`); heavy async
-            work here stalls the page turn and can hang the interaction. Call
-            ``await interaction.response.defer()`` in the turn first if a container needs it.
-
-        """
-
-    def _footer(self, include_sep: bool = False) -> Self:
+    def footer(self, include_sep: bool = False) -> Self:
         """Add the plain credit footer, optionally preceded by a separator.
 
         Parameters
@@ -450,7 +470,51 @@ class KumaContainer(discord.ui.Container[KumaLayoutView]):
         spacing: discord.SeparatorSpacing = discord.SeparatorSpacing.large if large else discord.SeparatorSpacing.small
         return self.add_item(discord.ui.Separator(spacing=spacing, visible=visible))
 
-    def _paginator_footer(self) -> Self:
+    def add_text(self, content: Union[str, Sequence[str]], /, *, max_lines: Optional[int] = None) -> Self:
+        """Add a :class:`KumaTextDisplay` and return :class:`Self` for fluent chaining.
+
+        The drop-in for `add_item(discord.ui.TextDisplay(...))` that keeps the body inside the
+        Components V2 budget; :meth:`KumaTextDisplay._fit` trims an over-long block down to a
+        `-# ... and X more` line rather than letting Discord cut the tail off in silence.
+
+        Parameters
+        ----------
+        content : :class:`Union[str, Sequence[str]]`
+            A single body, split on its newlines, or the pre-formatted lines to fit.
+        max_lines : :class:`Optional[int]`, optional
+            Soft line cut before the tail is summarised, clamped to :attr:`KumaTextDisplay.line_limit`;
+            :attr:`KumaTextDisplay.page_lines` when `None`, by default `None`.
+
+        Returns
+        -------
+        :class:`Self`
+            Returns :class:`Self` for fluent chaining.
+
+        """
+        return self.add_item(KumaTextDisplay(content, max_lines=max_lines))
+
+    def add_title(self, title: str, /, *, include_separator: bool = True) -> Self:
+        """Add a ``## title`` heading, optionally followed by a large separator.
+
+        Parameters
+        ----------
+        title : :class:`str`
+            The heading text, rendered as a level-two Markdown heading.
+        include_separator : :class:`bool`, optional
+            Add a large :class:`discord.ui.Separator` under the heading, by default `True`.
+
+        Returns
+        -------
+        :class:`Self`
+            Returns :class:`Self` for fluent chaining.
+
+        """
+        self.add_item(discord.ui.TextDisplay(f"## {title}"))
+        if include_separator:
+            self.add_separator(large=True)
+        return self
+
+    def paginator_footer(self) -> Self:
         """Add a footer showing the current page position.
 
         Returns
@@ -461,6 +525,121 @@ class KumaContainer(discord.ui.Container[KumaLayoutView]):
         """
         count: str = f"{self.view_pos + 1}/{self.view.c_length}"
         return self.add_item(discord.ui.TextDisplay(content=f"-# Page {count} {self._middle_dot} Kuma Kuma Bear"))
+
+
+class KumaTextDisplay(discord.ui.TextDisplay[KumaLayoutView]):
+    """A self-limiting :class:`discord.ui.TextDisplay` for Kuma Kuma Bear.
+
+    The replacement for a raw :class:`discord.ui.TextDisplay`: the content is passed through
+    :meth:`_fit` at construction, so a body that overruns the Components V2 budget ends in a
+    `-# ... and X more` line rather than being cut off in silence by Discord at send.
+
+    .. note::
+        :attr:`char_limit` and :attr:`line_limit` are the hard ceilings; the per-call `max_lines`
+        is the softer cut, defaulting to :attr:`page_lines` and never allowed above :attr:`line_limit`.
+        Paging the full content across a :class:`KumaLayoutView` is still the caller's job - one
+        :class:`KumaContainer` per page - and :meth:`_fit` is only the backstop for when they skip it.
+
+    """
+
+    _char_limit: ClassVar[int] = 3500
+    "Character budget for the whole body, sat under Discord's ~4000 Components V2 limit."
+    _line_limit: ClassVar[int] = 50
+    "Hard line cap; a `TextDisplay` stops rendering near 50 lines whatever the character budget."
+    page_lines: ClassVar[int] = 25
+    "Soft line cut used when a caller passes no `max_lines`."
+
+    def __init__(self, content: Union[str, Sequence[str]], *, max_lines: Optional[int] = None) -> None:
+        """Build the display, fitting `content` to the budget.
+
+        Parameters
+        ----------
+        content : :class:`Union[str, Sequence[str]]`
+            A single body, split on its newlines, or the pre-formatted lines to fit.
+        max_lines : :class:`Optional[int]`, optional
+            Soft line cut before the tail is summarised, clamped to :attr:`line_limit`;
+            :attr:`page_lines` when `None`, by default `None`.
+
+        """
+        entries: Sequence[str] = content.splitlines() if isinstance(content, str) else content
+        super().__init__(self._fit(entries, max_lines=max_lines))
+
+    @classmethod
+    def _fit(cls, entries: Sequence[str], *, max_lines: Optional[int] = None) -> str:
+        """Trim `entries` to the budget, summarising the dropped tail as `-# ... and X more`.
+
+        The single-page backstop; :meth:`paginate` splits across pages instead.
+
+        Parameters
+        ----------
+        entries : :class:`Sequence[str]`
+            The pre-formatted lines to fit.
+        max_lines : :class:`Optional[int]`, optional
+            Soft line cut, clamped to :attr:`line_limit`; :attr:`page_lines` when `None`, by default `None`.
+
+        Returns
+        -------
+        :class:`str`
+            The kept lines, newline joined, with a trailing summary line when anything was dropped.
+
+        """
+        limit_lines: int = min(cls.page_lines if max_lines is None else max_lines, cls._line_limit)
+        kept: list[str] = []
+        length: int = 0
+        dropped: int = 0
+        for indx, entry in enumerate(entries):
+            cost: int = len(entry) + (1 if kept else 0)  # +1 for the newline that joins it on.
+            # A lone paragraph past the whole budget is trimmed in place, so a single block still
+            # shows its opening characters rather than vanishing when it overruns on its own.
+            if not kept and len(entry) > cls._char_limit:
+                kept.append(f"{entry[: cls._char_limit].rstrip()} ...")
+                dropped = len(entries) - 1
+                break
+            # Stop on whichever budget trips first; the untouched tail is summarised below.
+            if kept and (length + cost > cls._char_limit or len(kept) >= limit_lines):
+                dropped = len(entries) - indx
+                break
+            kept.append(entry)
+            length += cost
+        if dropped:
+            kept.append(f"-# ... and {dropped} more")
+        return "\n".join(kept)
+
+    @classmethod
+    def paginate(cls, content: Union[str, Sequence[str]], *, max_lines: Optional[int] = None) -> list[Self]:
+        """Split *content* into :class:`KumaTextDisplay` pages that each fit the Components V2 budget.
+
+        Parameters
+        ----------
+        content : :class:`Union[str, Sequence[str]]`
+            A single body, split on its newlines, or the pre-formatted lines to paginate.
+        max_lines : :class:`Optional[int]`, optional
+            Soft line cut per page, clamped to :attr:`line_limit`; :attr:`page_lines` when `None`,
+            by default `None`.
+
+        Returns
+        -------
+        :class:`list[Self]`
+            One display per page.
+
+        """
+        entries: Sequence[str] = content.splitlines() if isinstance(content, str) else content
+        limit_lines: int = min(cls.page_lines if max_lines is None else max_lines, cls._line_limit)
+        pages: list[list[str]] = []
+        current: list[str] = []
+        length: int = 0
+        for entry in entries:
+            cost: int = len(entry) + (1 if current else 0)  # +1 for the newline that joins it on.
+            if current and (length + cost > cls._char_limit or len(current) >= limit_lines):
+                pages.append(current)
+                current = [entry]
+                length = len(entry)
+            else:
+                current.append(entry)
+                length += cost
+        if current:
+            pages.append(current)
+        return [cls(page, max_lines=max_lines) for page in pages]
 
 
 class NavButton(discord.ui.Button[KumaLayoutView]):
